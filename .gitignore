@@ -1,0 +1,7 @@
+.DS_Store
+*.pyc
+*~
+.idea
+dist/
+.mypy_cache
+obfuscated/

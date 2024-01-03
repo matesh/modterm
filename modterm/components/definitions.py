@@ -1,0 +1,98 @@
+"""
+ModTerm - Modbus analyser for the terminal
+
+Copyright (C) 2023  Máté Szabó
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+"""
+
+from enum import Enum
+from typing import List, Optional
+from dataclasses import dataclass
+
+CONFIG_DIR = "modcurses"
+
+HOLDING = "Read holding registers"
+INPUT = "Read input registers"
+COIL = "Read coils"
+DISCRETE = "Read discrete inputs"
+
+LittleEndian = "Little endian"
+BigEndian = "Big endian"
+
+TCP = "TCP"
+RTU = "RTU"
+
+formats = {
+    "UINT16": "16bit_uint",
+    "INT16": "16bit_int",
+    "UINT32": "32bit_uint",
+    "INT32": "32bit_int",
+    # "FLOAT32": "32bit_float"
+}
+
+
+class ConfigType(Enum):
+    ModbusConfig = "modbus_config.conf"
+    ReadConfig = "read_config.conf"
+    WriteConfig = "write_config.conf"
+    UnitSweepConfig = "scan_config.conf"
+
+
+@dataclass
+class ModbusConfig:
+    mode: str = TCP
+    ip: str = "localhost"
+    port: int = 502
+    interface: str = "/dev/ttyO1"
+    baud_rate: int = 9600
+    parity: str = "N"
+    bytesize: int = 8
+    stopbits: int = 1
+    word_order: str = BigEndian
+    byte_order: str = BigEndian
+
+
+@dataclass
+class ReadConfig:
+    command: str = HOLDING
+    start: int = 0
+    number: int = 1
+    unit: int = 1
+    individuals: bool = False
+
+
+@dataclass
+class WriteConfig:
+    address: int = 0
+    unit: int = 1
+    format: str = list(formats.keys())[0]
+    multicast: bool = False
+    value: float = 1
+
+
+@dataclass
+class UnitSweepConfig:
+    start_unit: int = 1
+    last_unit: int = 255
+    command: str = HOLDING
+    start_register: int = 0
+    number_of_registers: int = 1
+    timeout: float = 0.2
+
+
+@dataclass
+class TableContents:
+    header: Optional[List[str]]
+    rows: List[List[str]]

@@ -1,0 +1,39 @@
+name: Build package
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11.5
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11.5
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install -r requirements.txt
+
+
+    - name: Build wheel
+      run: |
+        python3 -m build
+
+    - uses: svenstaro/upload-release-action@v2
+      name: Upload package to the release tag
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: dist/modterm*.whl
+        file_glob: true
+        tag: ${{ github.ref }}
+        overwrite: true
+        make_latest: false
