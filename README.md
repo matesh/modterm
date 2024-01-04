@@ -18,16 +18,19 @@ Registers with a provided encoding method can be written into one or more regist
 ![Write registers](/assets/write_register_menu.png)
 
 ### Scanning devices on a bus
-TThis feature allows to sweep through modbus unit IDs on a connected bus and run a register read operation, in the hope of receiving a response and thus detecting a device.
+This feature allows to sweep through modbus unit IDs on a connected bus and run a register read operation, in the hope of receiving a response and thus detecting a device.
 
 ![Unit sweep](/assets/unit_sweep_menu.png)
 ![Unit sweep results](/assets/unit_sweep_results.png)
 
 ## Requirements
-The project runs best on Python 3.11 and above, but should run on any versions of Python above 3.9
-The project depends on the `pymodbus` library and should install that from pypi during installation.
+The project runs best on Python 3.11 and above, but should run on any versions of Python above 3.9.
 
-⚠️ The project has been tested on macOS and Linux, but not on Windows. According to the documentation of the curses module in Python, it is not included in the Windows version. The documentation mentions the UniCurses module to be used under Windows, but this has not been tested yet. This section will be updated once testing has been done. For Windows users wanting to take advantage of this software, I recommend using WSL.
+It depends on and uses the `pymodbus` and `pyserial` libraries, which should be collected by pip, from pypi during installation. Please visit and support these free and open source projects!
+- pymodbus: https://github.com/pymodbus-dev/pymodbus
+- pyserial: https://github.com/pyserial/pyserial
+
+⚠️ Modterm has been tested on macOS and Linux, but not on Windows. According to the documentation of the curses module in Python, it is not included in the Windows version. The documentation mentions the UniCurses module to be used under Windows, but this has not been tested yet. This section will be updated once testing has been done. For Windows users wanting to take advantage of this software, I recommend using WSL.
 
 ## Installation and usage
 - Install a version of Python 3 using your operating system's package manager, or start up a virtual environment with Python version being ideally 3.11 or above
