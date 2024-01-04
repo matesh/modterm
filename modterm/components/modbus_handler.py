@@ -28,10 +28,13 @@ from modterm.components.definitions import HOLDING, INPUT, LittleEndian, ModbusC
                                            TableContents, TCP, UnitSweepConfig
 import logging
 from pymodbus import pymodbus_apply_logging_config
-from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
-from modterm.components.debug_output import log
+from pymodbus.payload import BinaryPayloadDecoder as Decoder
+from pymodbus.payload import BinaryPayloadBuilder as Builder
 
 pymodbus_apply_logging_config(logging.CRITICAL)
+
+
+(INVALID, WORD, DWORD) = range(3)
 
 
 @dataclass
@@ -53,9 +56,9 @@ word_columns = [
     Header("Bits", 19)]
 
 
-WORDS_HEADER = []
+WORDS_HEADER_ROW = []
 for header_def in word_columns:
-    WORDS_HEADER.append("{number: >{align}}".format(number=header_def.title, align=header_def.padding))
+    WORDS_HEADER_ROW.append("{number: >{align}}".format(number=header_def.title, align=header_def.padding))
 
 
 class ModbusHandler:
@@ -104,39 +107,23 @@ class ModbusHandler:
     def process_words(self, modbus_config: ModbusConfig, read_config: ReadConfig) -> TableContents:
         return_rows = []
         start_reg = read_config.start
-        byteorder = "<" if modbus_config.byte_order == LittleEndian else ">"
-        wordorder = "<" if modbus_config.word_order == LittleEndian else ">"
         for idx, register in enumerate(self.last_data):
-            this_failed = False
-            other_failed = False
-            if register is None:
-                this_failed = True
-            if len(self.last_data) <= idx + 1 or self.last_data[idx+1] is None:
-                other_failed = True
+            is_word = bool(register is not None)
+            is_dword = bool(len(self.last_data) > idx + 1 and self.last_data[idx+1] is not None)
             return_row = []
-
-            if other_failed and not this_failed:
-                decoder = BinaryPayloadDecoder.fromRegisters(self.last_data[idx:idx + 1],
-                                                             byteorder=byteorder,
-                                                             wordorder=wordorder)
-            elif not this_failed and not other_failed:
-                decoder = BinaryPayloadDecoder.fromRegisters(self.last_data[idx:idx + 2],
-                                                             byteorder=byteorder,
-                                                             wordorder=wordorder)
-            else:
-                for header in word_columns:
-                    if header.title == "St":
-                        return_row.append("--")
-                    else:
-                        return_row.append("{text: >{padding}}".format(text="N/A", padding=header.padding))
-                return_rows.append(return_row)
-                continue
-
+            decoder = Decoder.fromRegisters(self.last_data[idx:idx + 2] if is_dword else self.last_data[idx:idx + 1],
+                                            byteorder="<" if modbus_config.byte_order == LittleEndian else ">",
+                                            wordorder="<" if modbus_config.word_order == LittleEndian else ">")
             for header in word_columns:
                 if header.title == "Addr":
                     return_row.append('{num: >{width}}'.format(num=idx + start_reg, width=header.padding))
                 if header.title == "HAdr":
                     return_row.append("{num: >{padding}X}".format(num=idx+start_reg, padding=header.padding))
+
+                if not is_word:
+                    return_row.append("{text: >{padding}}".format(text="--", padding=header.padding))
+                    continue
+
                 if header.title == "HexV":
                     return_row.append("{num: >{padding}X}".format(num=register, padding=header.padding))
                 if header.title == "U16":
@@ -147,51 +134,43 @@ class ModbusHandler:
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_16bit_int(),
                                                                  padding=header.padding))
+                if not is_dword:
+                    return_row.append("{text: >{padding}}".format(text="--", padding=header.padding))
+                    continue
+
                 if header.title == "U32":
-                    if other_failed:
-                        return_row.append("{text: >{padding}}".format(text="N/A", padding=header.padding))
-                    else:
                         decoder.reset()
                         return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_uint(),
                                                                      padding=header.padding))
                 if header.title == "I32":
-                    if other_failed:
-                        return_row.append("{text: >{padding}}".format(text="N/A", padding=header.padding))
-                    else:
-                        decoder.reset()
-                        return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_int(),
-                                                                     padding=header.padding))
+                    decoder.reset()
+                    return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_int(),
+                                                                 padding=header.padding))
                 if header.title == "F32":
-                    if other_failed:
-                        return_row.append("{text: >{padding}}".format(text="N/A", padding=header.padding))
-                    else:
-                        decoder.reset()
-                        number = decoder.decode_32bit_float()
-                        number_string = "{0:0.3f}".format(number)
-                        if len(str(number_string)) > 11:
-                            number_string = "{0:0.5e}".format(number)
-                        return_row.append("{num: >{padding}}".format(num=number_string, padding=header.padding))
+                    decoder.reset()
+                    number = decoder.decode_32bit_float()
+                    number_string = "{0:0.3f}".format(number)
+                    if len(str(number_string)) > 11:
+                        number_string = "{0:0.5e}".format(number)
+                    return_row.append("{num: >{padding}}".format(num=number_string, padding=header.padding))
                 if header.title == "St":
-                    if register != 0x00:
-                        if not modbus_config.byte_order == LittleEndian:
-                            first = register >> 8
-                            second = register & 0xff
-                        else:
-                            second = register >> 8
-                            first = register & 0xff
-                        first = chr(first) if first > 31 and first != 127 else "-"
-                        second = chr(second) if second > 31 and second != 127 else "-"
-                        return_row.append("{}{}".format(first if len(first) != 0 else "-",
-                                                        second if len(second) != 0 else "-"))
+                    if not modbus_config.byte_order == LittleEndian:
+                        first = register >> 8
+                        second = register & 0xff
                     else:
-                        return_row.append("--")
+                        second = register >> 8
+                        first = register & 0xff
+                    first = chr(first) if 31 < first < 127 else "-"
+                    second = chr(second) if 31 < second < 127 else "-"
+                    return_row.append("{}{}".format(first if len(first) != 0 else "-",
+                                                    second if len(second) != 0 else "-"))
 
                 if header.title == "Bits":
                     decoder.reset()
                     bits = "{0:016b}".format(decoder.decode_16bit_uint())
                     return_row.append(f"{bits[0:4]} {bits[4:8]} {bits[8:12]} {bits[12:16]}")
             return_rows.append(return_row)
-        return TableContents(header=WORDS_HEADER, rows=return_rows)
+        return TableContents(header=WORDS_HEADER_ROW, rows=return_rows)
 
     # def process_coils(self, modbus_config: ModbusConfig, read_config: ReadConfig):
     #     return [""], [""]
@@ -268,8 +247,8 @@ class ModbusHandler:
         if client is None:
             return None
         format = format_mapping[write_config.format]
-        encoder = BinaryPayloadBuilder(wordorder="<" if modbus_config.word_order == LittleEndian else ">",
-                                       byteorder="<" if modbus_config.byte_order == LittleEndian else ">")
+        encoder = Builder(wordorder="<" if modbus_config.word_order == LittleEndian else ">",
+                          byteorder="<" if modbus_config.byte_order == LittleEndian else ">")
         encode_call = getattr(encoder, "add_{}".format(format))
         encode_call(int(write_config.value))
         try:
