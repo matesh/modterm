@@ -20,6 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 from enum import Enum
 from typing import List, Optional
 from dataclasses import dataclass
+import inspect
 
 CONFIG_DIR = "modcurses"
 
@@ -63,6 +64,13 @@ class ModbusConfig:
     word_order: str = BigEndian
     byte_order: str = BigEndian
 
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        return cls(**{
+            k: v for k, v in config_dict.items()
+            if k in inspect.signature(cls).parameters
+        })
+
 
 @dataclass
 class ReadConfig:
@@ -70,7 +78,14 @@ class ReadConfig:
     start: int = 0
     number: int = 1
     unit: int = 1
-    individuals: bool = False
+    block_size: int = 125
+
+    @classmethod
+    def from_dict(cls, config_dict):
+        return cls(**{
+            k: v for k, v in config_dict.items()
+            if k in inspect.signature(cls).parameters
+        })
 
 
 @dataclass
@@ -81,6 +96,13 @@ class WriteConfig:
     multicast: bool = False
     value: float = 1
 
+    @classmethod
+    def from_dict(cls, config_dict):
+        return cls(**{
+            k: v for k, v in config_dict.items()
+            if k in inspect.signature(cls).parameters
+        })
+
 
 @dataclass
 class UnitSweepConfig:
@@ -90,6 +112,13 @@ class UnitSweepConfig:
     start_register: int = 0
     number_of_registers: int = 1
     timeout: float = 0.2
+
+    @classmethod
+    def from_dict(cls, config_dict):
+        return cls(**{
+            k: v for k, v in config_dict.items()
+            if k in inspect.signature(cls).parameters
+        })
 
 
 @dataclass
