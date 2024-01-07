@@ -94,10 +94,10 @@ class ModbusHandler:
 
         self.status_text_callback("Starting transaction")
         if read_config.command == HOLDING:
-            self.last_data = self.get_registers(screen, client.read_holding_registers, read_config)
+            self.last_data = self.get_register_blocks(screen, client.read_holding_registers, read_config)
             self.last_command = read_config.command
         else:  # elif read_config.command == INPUT:
-            self.last_data = self.get_registers(screen, client.read_input_registers, read_config)
+            self.last_data = self.get_register_blocks(screen, client.read_input_registers, read_config)
             self.last_command = read_config.command
         # else:
         #     self.last_data = self.get_registers(client.read_coils, read_config)
@@ -194,8 +194,8 @@ class ModbusHandler:
         self.status_text_callback(f"Successfully read {slave}, {address}, {count}")
         return result.registers
 
-    def get_register_blocks(self, command: callable, read_config: ReadConfig) -> List[Optional[int]]:
-        if read_config.number < 120:
+    def get_register_blocks(self, screen, command: callable, read_config: ReadConfig) -> List[Optional[int]]:
+        if read_config.number <= read_config.block_size:
             return self.read_registers(command,
                                        address=read_config.start,
                                        count=read_config.number,
@@ -203,43 +203,32 @@ class ModbusHandler:
         regs_to_return = []
         start = read_config.start
         count = read_config.number
-        number = 120
-        count -= 120
+        number = read_config.block_size
+        count -= read_config.block_size
+        screen.nodelay(True)
         while True:
             regs = self.read_registers(command, address=start, count=number, slave=read_config.unit)
+            key = screen.getch()
+            if key == 27:
+                self.status_text_callback("Interrupted!")
+                screen.nodelay(False)
+                break
             if regs is None:
                 regs_to_return += [None] * number
                 continue
             else:
                 regs_to_return += regs
             if count == 0:
+                screen.nodelay(False)
                 return regs_to_return
-            if 120 < count:
+            if read_config.block_size < count:
                 start += number
-                number = 120
-                count -= 120
+                number = read_config.block_size
+                count -= read_config.block_size
             else:
                 start += number
                 number = count
                 count = 0
-
-    def read_registers_individually(self, screen, command: callable, read_config:ReadConfig) -> List[Optional[int]]:
-        regs_to_return = []
-        screen.nodelay(True)
-        for register in range(read_config.start, read_config.number):
-            regs_to_return += self.read_registers(command, address=register, count=1, slave=read_config.unit)
-            key = screen.getch()
-            if key == 27:
-                self.status_text_callback("Interrupted!")
-                break
-            curses.napms(100)
-        screen.nodelay(False)
-        return regs_to_return
-
-    def get_registers(self, screen, command: callable, read_config: ReadConfig) -> List[Optional[int]]:
-        if read_config.individuals:
-            return self.read_registers_individually(screen, command, read_config)
-        return self.get_register_blocks(command, read_config)
 
     def write_registers(self, modbus_config: ModbusConfig, write_config: WriteConfig, format_mapping: dict):
         # if write_config["multicast"]
