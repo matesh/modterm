@@ -21,7 +21,28 @@ import curses
 
 
 class WindowBase:
-    def __init__(self, screen, height, width, y=None, x=None, title="", footer=""):
+    def __init__(self, screen, height, width, y=None, x=None, title="", footer="", min_height=None, min_width=None):
+        max_height = screen.getmaxyx()[0]
+        max_width = screen.getmaxyx()[1]
+        width = width if width < max_width else max_width - 2
+        height = height if height < max_height else max_height - 2
+        if (min_height is not None and width < min_width) or (min_height is not None and height < min_height):
+            self.is_valid = False
+            window = curses.newwin(max_height,
+                                   max_width,
+                                   0,
+                                   0)
+            window.erase()
+            window.border(0)
+            window.box()
+            try:
+                window.addstr(1, 2, "Terminal window is too small to draw interface")
+                window.refresh()
+            except Exception as e:
+                pass
+            curses.napms(1500)
+            return
+        self.is_valid = True
         self.width = width
         self.screen = screen
         self.height = height

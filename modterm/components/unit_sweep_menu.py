@@ -28,7 +28,13 @@ from modterm.components.config_handler import load_unit_sweep_config, save_unit_
 
 class UnitSweepMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        self.dialog = WindowBase(screen, 40, 120, title="Sweep units")
+        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        self.is_valid = self.dialog.is_valid
+        if not self.is_valid:
+            return
+        self.max_status_index = height - 2
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text
         self.screen = screen

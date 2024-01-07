@@ -28,11 +28,18 @@ from modterm.components.config_handler import load_read_config, save_read_config
 
 class ReadRegistersMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        self.dialog = WindowBase(screen, 40, 120, title="Read registers")
+        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        self.is_valid = self.dialog.is_valid
+        if not self.is_valid:
+            return
+        self.max_status_index = height - 2
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text
         self.screen = screen
-        self.status_index = 10
+        self.start_status_index = 10
+        self.status_index = self.start_status_index
         self.modbus_handler = ModbusHandler(self.add_status_text)
 
         self.configuration = load_read_config()
@@ -48,10 +55,10 @@ class ReadRegistersMenu:
         self.dialog.window.refresh()
 
     def add_status_text(self, text):
-        if self.status_index == 39:
+        if self.status_index == self.max_status_index:
             self.dialog.window.clear()
             self.draw()
-            self.status_index = 10
+            self.status_index = self.start_status_index
         self.dialog.window.addstr(self.status_index, 2, text)
         self.status_index += 1
         self.dialog.window.refresh()
