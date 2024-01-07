@@ -75,7 +75,7 @@ def config_file_manager(action: ConfigOperation,
                 loaded_config: dict = loads(configfile.read())
         except Exception as e:
             log(f"Failed to read {config_file}")
-        return config_class(**loaded_config)  #type: ignore
+        return config_class.from_dict(loaded_config)
     else:
         if config_to_save is None:
             return None

@@ -65,22 +65,25 @@ def app(screen):
             display_help(screen)
         if x == ord("r"):
             read_registers_menu = ReadRegistersMenu(screen, normal_text, highlighted_text)
-            table_data = read_registers_menu.read_registers(menu.configuration)
-            if table_data is not None:
-                data_window.draw(table_data)
-                modbus_handler = read_registers_menu.modbus_handler
-            save_modbus_config(menu.configuration)
+            if read_registers_menu.is_valid:
+                table_data = read_registers_menu.read_registers(menu.configuration)
+                if table_data is not None:
+                    data_window.draw(table_data)
+                    modbus_handler = read_registers_menu.modbus_handler
+                save_modbus_config(menu.configuration)
         if x == ord("w"):
             write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text)
-            write_registers_menu.write_register(menu.configuration)
-            save_modbus_config(menu.configuration)
+            if write_registers_menu.is_valid:
+                write_registers_menu.write_register(menu.configuration)
+                save_modbus_config(menu.configuration)
         if x == ord("s"):
             unit_sweep_menu = UnitSweepMenu(screen, normal_text, highlighted_text)
-            table_data = unit_sweep_menu.sweep_units(modbus_config=menu.configuration)
-            if table_data is not None:
-                data_window.draw(table_data)
-                modbus_handler = unit_sweep_menu.modbus_handler
-            save_modbus_config(menu.configuration)
+            if unit_sweep_menu.is_valid:
+                table_data = unit_sweep_menu.sweep_units(modbus_config=menu.configuration)
+                if table_data is not None:
+                    data_window.draw(table_data)
+                    modbus_handler = unit_sweep_menu.modbus_handler
+                save_modbus_config(menu.configuration)
         data_window.draw()
         menu.draw()
         # screen.addstr(screen.getmaxyx()[0] - 1, screen.getmaxyx()[1] - 4, str(x))

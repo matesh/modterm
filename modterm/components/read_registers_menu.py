@@ -28,11 +28,18 @@ from modterm.components.config_handler import load_read_config, save_read_config
 
 class ReadRegistersMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        self.dialog = WindowBase(screen, 40, 120, title="Read registers")
+        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        self.is_valid = self.dialog.is_valid
+        if not self.is_valid:
+            return
+        self.max_status_index = height - 2
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text
         self.screen = screen
-        self.status_index = 10
+        self.start_status_index = 10
+        self.status_index = self.start_status_index
         self.modbus_handler = ModbusHandler(self.add_status_text)
 
         self.configuration = load_read_config()
@@ -43,15 +50,15 @@ class ReadRegistersMenu:
         self.dialog.window.addstr(3, 2, f"F3 - Start register: {self.configuration.start}")
         self.dialog.window.addstr(4, 2, f"F4 - Number of registers to read: {self.configuration.number}")
         self.dialog.window.addstr(5, 2, f"F5 - Modbus unit ID: {self.configuration.unit}")
-        self.dialog.window.addstr(6, 2, f"F6 - Read registers one by one: {self.configuration.individuals}")
+        self.dialog.window.addstr(6, 2, f"F6 - Block size: {self.configuration.block_size}")
         self.dialog.window.addstr(8, 2, f"Press ENTER to start reading, ESC to interrupt the process")
         self.dialog.window.refresh()
 
     def add_status_text(self, text):
-        if self.status_index == 39:
+        if self.status_index == self.max_status_index:
             self.dialog.window.clear()
             self.draw()
-            self.status_index = 10
+            self.status_index = self.start_status_index
         self.dialog.window.addstr(self.status_index, 2, text)
         self.status_index += 1
         self.dialog.window.refresh()
@@ -100,11 +107,17 @@ class ReadRegistersMenu:
         else:
             self.configuration.unit = int(unit_id)
 
-    def swap_individual(self):
-        if self.configuration.individuals:
-            self.configuration.individuals = False
+    def get_block_size(self):
+        unit_id = get_text_input(self.dialog.window, 4, 6, 19, str(self.configuration.block_size))
+        try:
+            if not (1 <= int(unit_id) <= 125):
+                raise AttributeError
+        except Exception:
+            self.dialog.window.addstr(5, 23, "Block size must be between 1 and 125")
+            self.dialog.window.refresh()
+            curses.napms(1000)
         else:
-            self.configuration.individuals = True
+            self.configuration.block_size = int(unit_id)
 
     def read_registers(self, modbus_config) -> Optional[TableContents]:
         self.draw()
@@ -119,7 +132,7 @@ class ReadRegistersMenu:
             if x == curses.KEY_F5:
                 self.get_unit_id()
             if x == curses.KEY_F6:
-                self.swap_individual()
+                self.get_block_size()
             self.draw()
             x = self.screen.getch()
         if x == 27:

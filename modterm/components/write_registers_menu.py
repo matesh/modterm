@@ -30,11 +30,18 @@ from modterm.components.definitions import formats, TableContents
 
 class WriteRegistersMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        self.dialog = WindowBase(screen, 40, 120, title="Write registers")
+        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        self.is_valid = self.dialog.is_valid
+        if not self.is_valid:
+            return
+        self.max_status_index = height - 2
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text
         self.screen = screen
-        self.status_index = 10
+        self.status_start_index = 10
+        self.status_index = self.status_start_index
         self.modbus_handler = ModbusHandler(self.add_status_text)
 
         self.configuration = load_write_config()
@@ -50,6 +57,10 @@ class WriteRegistersMenu:
         self.dialog.window.refresh()
 
     def add_status_text(self, text):
+        if self.status_index == self.max_status_index:
+            self.status_index = self.status_start_index
+            self.dialog.window.clear()
+            self.draw()
         self.dialog.window.addstr(self.status_index, 2, text)
         self.status_index += 1
         self.dialog.window.refresh()
