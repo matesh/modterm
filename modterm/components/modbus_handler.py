@@ -111,7 +111,7 @@ class ModbusHandler:
             is_word = bool(register is not None)
             is_dword = bool(len(self.last_data) > idx + 1 and self.last_data[idx+1] is not None)
             return_row = []
-            if is_word and is_dword:
+            if is_word:
                 decoder = Decoder.fromRegisters(self.last_data[idx:idx + 2] if is_dword else self.last_data[idx:idx + 1],
                                                 byteorder="<" if modbus_config.byte_order == LittleEndian else ">",
                                                 wordorder="<" if modbus_config.word_order == LittleEndian else ">")
