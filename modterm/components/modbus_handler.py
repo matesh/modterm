@@ -111,9 +111,11 @@ class ModbusHandler:
             is_word = bool(register is not None)
             is_dword = bool(len(self.last_data) > idx + 1 and self.last_data[idx+1] is not None)
             return_row = []
-            decoder = Decoder.fromRegisters(self.last_data[idx:idx + 2] if is_dword else self.last_data[idx:idx + 1],
-                                            byteorder="<" if modbus_config.byte_order == LittleEndian else ">",
-                                            wordorder="<" if modbus_config.word_order == LittleEndian else ">")
+            if is_word and is_dword:
+                decoder = Decoder.fromRegisters(self.last_data[idx:idx + 2] if is_dword else self.last_data[idx:idx + 1],
+                                                byteorder="<" if modbus_config.byte_order == LittleEndian else ">",
+                                                wordorder="<" if modbus_config.word_order == LittleEndian else ">")
+
             for header in word_columns:
                 if header.title == "Addr":
                     return_row.append('{num: >{width}}'.format(num=idx + start_reg, width=header.padding))
@@ -211,7 +213,6 @@ class ModbusHandler:
             key = screen.getch()
             if key == 27:
                 self.status_text_callback("Interrupted!")
-                screen.nodelay(False)
                 break
             if regs is None:
                 regs_to_return += [None] * number
@@ -219,7 +220,6 @@ class ModbusHandler:
             else:
                 regs_to_return += regs
             if count == 0:
-                screen.nodelay(False)
                 return regs_to_return
             if read_config.block_size < count:
                 start += number
