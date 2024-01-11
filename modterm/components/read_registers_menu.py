@@ -140,6 +140,7 @@ class ReadRegistersMenu:
         to_return = self.modbus_handler.get_data_rows(self.screen, modbus_config, self.configuration)
         self.add_status_text("Press any key to close this panel")
         self.dialog.window.refresh()
+        self.screen.nodelay(False)
         x = self.screen.getch()
         save_read_config(self.configuration)
         return to_return
