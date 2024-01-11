@@ -119,8 +119,10 @@ class ModbusHandler:
             for header in word_columns:
                 if header.title == "Addr":
                     return_row.append('{num: >{width}}'.format(num=idx + start_reg, width=header.padding))
+                    continue
                 if header.title == "HAdr":
                     return_row.append("{num: >{padding}X}".format(num=idx+start_reg, padding=header.padding))
+                    continue
 
                 if not is_word:
                     return_row.append("{text: >{padding}}".format(text="--", padding=header.padding))
@@ -128,26 +130,31 @@ class ModbusHandler:
 
                 if header.title == "HexV":
                     return_row.append("{num: >{padding}X}".format(num=register, padding=header.padding))
+                    continue
                 if header.title == "U16":
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_16bit_uint(),
                                                                  padding=header.padding))
+                    continue
                 if header.title == "I16":
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_16bit_int(),
                                                                  padding=header.padding))
+                    continue
                 if not is_dword:
                     return_row.append("{text: >{padding}}".format(text="--", padding=header.padding))
                     continue
 
                 if header.title == "U32":
-                        decoder.reset()
-                        return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_uint(),
-                                                                     padding=header.padding))
+                    decoder.reset()
+                    return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_uint(),
+                                                                 padding=header.padding))
+                    continue
                 if header.title == "I32":
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_int(),
                                                                  padding=header.padding))
+                    continue
                 if header.title == "F32":
                     decoder.reset()
                     number = decoder.decode_32bit_float()
@@ -155,6 +162,7 @@ class ModbusHandler:
                     if len(str(number_string)) > 11:
                         number_string = "{0:0.5e}".format(number)
                     return_row.append("{num: >{padding}}".format(num=number_string, padding=header.padding))
+                    continue
                 if header.title == "St":
                     if not modbus_config.byte_order == LittleEndian:
                         first = register >> 8
@@ -166,11 +174,13 @@ class ModbusHandler:
                     second = chr(second) if 31 < second < 127 else "-"
                     return_row.append("{}{}".format(first if len(first) != 0 else "-",
                                                     second if len(second) != 0 else "-"))
+                    continue
 
                 if header.title == "Bits":
                     decoder.reset()
                     bits = "{0:016b}".format(decoder.decode_16bit_uint())
                     return_row.append(f"{bits[0:4]} {bits[4:8]} {bits[8:12]} {bits[12:16]}")
+                    continue
             return_rows.append(return_row)
         return TableContents(header=WORDS_HEADER_ROW, rows=return_rows)
 
