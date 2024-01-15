@@ -44,6 +44,7 @@ class Header:
 
 
 word_columns = [
+    Header("idx", 4),
     Header("Addr", 6),
     Header("HAdr", 5),
     Header("HexV", 5),
@@ -117,6 +118,10 @@ class ModbusHandler:
                                                 wordorder="<" if modbus_config.word_order == LittleEndian else ">")
 
             for header in word_columns:
+                if header.title == "idx":
+                    return_row.append('{num: >{width}}'.format(num=idx, width=header.padding))
+                    continue
+
                 if header.title == "Addr":
                     return_row.append('{num: >{width}}'.format(num=idx + start_reg, width=header.padding))
                     continue
