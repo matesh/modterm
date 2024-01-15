@@ -78,7 +78,7 @@ class WriteRegistersMenu:
             self.configuration.address = int(start_register)
 
     def get_unit_id(self):
-        unit_id = get_text_input(self.dialog.window, 3, 3, 23, str(self.configuration.unit))
+        unit_id = get_text_input(self.dialog.window, 4, 3, 23, str(self.configuration.unit))
         try:
             if not 0 < int(unit_id) < 256:
                 raise AttributeError
