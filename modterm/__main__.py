@@ -22,18 +22,9 @@ import sys
 from os import environ, path
 import logging
 from logging.handlers import RotatingFileHandler
-
-from modterm.components.help import display_help
-from modterm.components.scrollable_list import ScrollableList
-from modterm.components.header_menu import HeaderMenu
-from modterm.components.read_registers_menu import ReadRegistersMenu
-from modterm.components.write_registers_menu import WriteRegistersMenu
 from modterm.components.config_handler import save_modbus_config, load_read_config, get_project_dir
-from modterm.components.unit_sweep_menu import UnitSweepMenu
-from modterm.components.popup_message import show_popup_message
 
 logger = logging.getLogger("ModTerm")
-
 logger.setLevel('INFO')
 
 if (project_dir := get_project_dir()) is not None:
@@ -46,6 +37,14 @@ if (project_dir := get_project_dir()) is not None:
 else:
     # Or else?
     pass
+
+from modterm.components.help import display_help
+from modterm.components.scrollable_list import ScrollableList
+from modterm.components.header_menu import HeaderMenu
+from modterm.components.read_registers_menu import ReadRegistersMenu
+from modterm.components.write_registers_menu import WriteRegistersMenu
+from modterm.components.unit_sweep_menu import UnitSweepMenu
+from modterm.components.popup_message import show_popup_message
 
 
 def app(screen):
