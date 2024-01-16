@@ -22,7 +22,7 @@ from typing import List, Optional
 from dataclasses import dataclass
 import inspect
 
-CONFIG_DIR = "modcurses"
+CONFIG_DIR = "modterm"
 
 HOLDING = "Read holding registers"
 INPUT = "Read input registers"
