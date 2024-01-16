@@ -138,6 +138,8 @@ class ReadRegistersMenu:
         if x == 27:
             return None
         to_return = self.modbus_handler.get_data_rows(self.screen, modbus_config, self.configuration)
+        if to_return is None:
+            self.add_status_text("Failed to process registers, check the log for details.")
         self.add_status_text("Press any key to close this panel")
         self.dialog.window.refresh()
         self.screen.nodelay(False)

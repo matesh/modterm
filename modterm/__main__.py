@@ -19,16 +19,33 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import curses
 import sys
-from os import environ
+from os import environ, path
+import logging
+from logging.handlers import RotatingFileHandler
 
 from modterm.components.help import display_help
 from modterm.components.scrollable_list import ScrollableList
 from modterm.components.header_menu import HeaderMenu
 from modterm.components.read_registers_menu import ReadRegistersMenu
 from modterm.components.write_registers_menu import WriteRegistersMenu
-from modterm.components.config_handler import save_modbus_config, load_read_config
-from modterm.components.debug_output import DebugOutput
+from modterm.components.config_handler import save_modbus_config, load_read_config, get_project_dir
 from modterm.components.unit_sweep_menu import UnitSweepMenu
+from modterm.components.popup_message import show_popup_message
+
+logger = logging.getLogger("ModTerm")
+
+logger.setLevel('INFO')
+
+if (project_dir := get_project_dir()) is not None:
+    file_handler = RotatingFileHandler(path.join(project_dir, "modterm.log"),
+                                       maxBytes=2000000,
+                                       backupCount=3,
+                                       errors='replace')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+else:
+    # Or else?
+    pass
 
 
 def app(screen):
@@ -49,6 +66,7 @@ def app(screen):
     menu.draw()
     x = screen.getch()
     modbus_handler = None
+    logger.info("ModTerm started up")
     while x != curses.KEY_F10:
         data_window.check_navigate(x)
         if menu.check_navigate(x):
@@ -84,17 +102,27 @@ def app(screen):
                     data_window.draw(table_data)
                     modbus_handler = unit_sweep_menu.modbus_handler
                 save_modbus_config(menu.configuration)
-        data_window.draw()
+
         menu.draw()
+        try:
+            data_window.draw()
+        except Exception:
+            logger.critical("Failed to draw data window!", exc_info=True)
+            show_popup_message(screen, width=40, title="Error", message="Failed to draw data window! Please refer to the log for details and repor any software issues.")
         # screen.addstr(screen.getmaxyx()[0] - 1, screen.getmaxyx()[1] - 4, str(x))
         screen.refresh()
         x = screen.getch()
 
 
 def main():
-    environ.setdefault('ESCDELAY', '25')
-    curses.wrapper(app)
-    print(DebugOutput.text)
+    try:
+        environ.setdefault('ESCDELAY', '25')
+        curses.wrapper(app)
+    except Exception as e:
+        print(f"Critical error, please check the log file in {project_dir} and report any software issues")
+        logger.critical("Critical error in main", exc_info=True)
+        return 1
+    logger.info("ModTerm session ended")
     return 0
 
 

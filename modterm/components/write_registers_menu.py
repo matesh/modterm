@@ -24,7 +24,6 @@ from modterm.components.hepers import get_text_input
 from modterm.components.modbus_handler import ModbusHandler
 from modterm.components.config_handler import load_write_config, save_write_config
 from modterm.components.scrollable_list import SelectWindow
-from modterm.components.debug_output import log
 from modterm.components.definitions import formats, TableContents
 
 

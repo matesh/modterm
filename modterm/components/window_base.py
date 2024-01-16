@@ -57,8 +57,8 @@ class WindowBase:
         self.window.erase()
         self.window.border(0)
         self.window.box()
-        if self.title != "":
+        if self.title != "" and len(self.title) < self.width:
             self.window.addstr(0, (self.window.getmaxyx()[1] - len(self.title)) // 2, f" {self.title} ")
-        if self.footer != "":
+        if self.footer != "" and len(self.footer) < self.width:
             self.window.addstr(self.height-2, (self.window.getmaxyx()[1] - len(self.footer)) // 2, self.footer)
         self.window.refresh()

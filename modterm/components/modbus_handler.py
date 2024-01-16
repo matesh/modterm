@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
-import curses
 from typing import Optional, List, Union
 from dataclasses import dataclass
 from pymodbus.client import ModbusTcpClient
@@ -35,6 +34,8 @@ pymodbus_apply_logging_config(logging.CRITICAL)
 
 
 (INVALID, WORD, DWORD) = range(3)
+
+logger = logging.getLogger("ModTerm")
 
 
 @dataclass
@@ -196,7 +197,10 @@ class ModbusHandler:
         if self.last_data == [] or self.last_command is None:
             return None
         if self.last_command == INPUT or self.last_command == HOLDING:
-            return self.process_words(modbus_config, read_config)
+            try:
+                return self.process_words(modbus_config, read_config)
+            except Exception:
+                logger.critical("Failed to process registers", exc_info=True)
         # return self.process_coils(modbus_config)
 
     def read_registers(self, command: callable, address: int, count: int, slave: int) -> List[Optional[int]]:
