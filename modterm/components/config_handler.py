@@ -23,7 +23,6 @@ from dataclasses import asdict
 import os
 import sys
 from pathlib import Path
-from modterm.components.debug_output import log
 from json import loads, dumps
 from modterm.components.definitions import CONFIG_DIR, ConfigType, ModbusConfig, ReadConfig, WriteConfig, \
                                            UnitSweepConfig
@@ -32,6 +31,28 @@ from modterm.components.definitions import CONFIG_DIR, ConfigType, ModbusConfig,
 class ConfigOperation(Enum):
     LOAD = "Load"
     SAVE = "Save"
+
+
+def get_project_dir():
+    if sys.platform.startswith("win"):
+        appdata_dir = os.getenv('LOCALAPPDATA')
+        project_dir = os.path.join(appdata_dir, CONFIG_DIR)
+    elif sys.platform.startswith("linux"):
+        home_dir = str(Path.home())
+        project_dir = os.path.join(home_dir, ".config", CONFIG_DIR)
+    elif sys.platform.startswith("darwin"):
+        home_dir = str(Path.home())
+        project_dir = os.path.join(home_dir, "Library", "ApplicationSupport", CONFIG_DIR)
+    else:
+        # TODO ?
+        return None
+    if project_dir is not None and not os.path.isdir(project_dir):
+        try:
+            os.makedirs(project_dir)
+        except Exception:
+            # TODO ?
+            return None
+    return project_dir
 
 
 def config_file_manager(action: ConfigOperation,
@@ -47,25 +68,15 @@ def config_file_manager(action: ConfigOperation,
                                                                                                    ReadConfig,
                                                                                                    WriteConfig,
                                                                                                    UnitSweepConfig]]:
-    if sys.platform.startswith("win"):
-        appdata_dir = os.getenv('LOCALAPPDATA')
-        config_dir = os.path.join(appdata_dir, CONFIG_DIR)
-        config_file = os.path.join(appdata_dir, CONFIG_DIR, config_type.value)
 
-    elif sys.platform.startswith("linux"):
-        home_dir = str(Path.home())
-        config_dir = os.path.join(home_dir, ".config", CONFIG_DIR)
-        config_file = os.path.join(home_dir, ".config", CONFIG_DIR, config_type.value)
-
-    elif sys.platform.startswith("darwin"):
-        home_dir = str(Path.home())
-        config_dir = os.path.join(home_dir, "Library", "ApplicationSupport", CONFIG_DIR)
-        config_file = os.path.join(home_dir, "Library", "ApplicationSupport", CONFIG_DIR, config_type.value)
-    else:
+    if (config_dir := get_project_dir()) is None:
+        # TODO log error
         return None
 
     if not os.path.isdir(config_dir):
         os.makedirs(config_dir)
+
+    config_file = os.path.join(config_dir, config_type.value)
 
     if action == ConfigOperation.LOAD:
         if not os.path.isfile(config_file):
@@ -74,7 +85,8 @@ def config_file_manager(action: ConfigOperation,
             with open(config_file, "r") as configfile:
                 loaded_config: dict = loads(configfile.read())
         except Exception as e:
-            log(f"Failed to read {config_file}")
+            # TODO log
+            pass
         return config_class.from_dict(loaded_config)
     else:
         if config_to_save is None:
