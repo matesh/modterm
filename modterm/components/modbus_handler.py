@@ -69,19 +69,23 @@ class ModbusHandler:
         self.last_data = []
         self.last_command = None
 
-    def get_client(self, modbus_config: ModbusConfig, timeout: float = None) -> Optional[Union[ModbusTcpClient,
-                                                                                               ModbusSerialClient]]:
+    def get_client(self,
+                   modbus_config: ModbusConfig,
+                   timeout: float = None,
+                   multicast_enable=False) -> Optional[Union[ModbusTcpClient, ModbusSerialClient]]:
         if modbus_config.mode == TCP:
             client = ModbusTcpClient(host=modbus_config.ip,
                                      port=modbus_config.port,
-                                     timeout=1 if timeout is None else timeout)
+                                     timeout=1 if timeout is None else timeout,
+                                     broadcast_enable=multicast_enable)
         else:
             client = ModbusSerialClient(port=modbus_config.interface,
                                         baudrate=modbus_config.baud_rate,
                                         bytesize=modbus_config.bytesize,
                                         parity=modbus_config.parity,
                                         stopbits=modbus_config.stopbits,
-                                        timeout=1 if timeout is None else timeout)
+                                        timeout=1 if timeout is None else timeout,
+                                        broadcast_enable=multicast_enable)
         try:
             client.connect()
         except ConnectionException:
@@ -250,8 +254,10 @@ class ModbusHandler:
                 count = 0
 
     def write_registers(self, modbus_config: ModbusConfig, write_config: WriteConfig, format_mapping: dict):
-        # if write_config["multicast"]
-        client = self.get_client(modbus_config)
+        unit_id = 0 if write_config.multicast else write_config.unit
+
+        client = self.get_client(modbus_config,
+                                 multicast_enable=write_config.multicast)
         if client is None:
             return None
         format = format_mapping[write_config.format]
@@ -262,9 +268,12 @@ class ModbusHandler:
         try:
             result = client.write_registers(address=int(write_config.address),
                                             values=encoder.to_registers(),
-                                            slave=write_config.unit)
+                                            slave=unit_id)
         except Exception as e:
             self.status_text_callback(f"Failed to write register: {e}")
+            return
+        if write_config.multicast:
+            self.status_text_callback("Multicast message sent with unit ID 0, no response expected")
             return
         if hasattr(result, "isError") and result.isError():
             self.status_text_callback(f"Failed to write register: {result}")
