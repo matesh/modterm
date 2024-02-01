@@ -114,15 +114,31 @@ def app(screen):
 
 
 def main():
+    rc = 0
     try:
         environ.setdefault('ESCDELAY', '25')
-        curses.wrapper(app)
+        stdscr = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        stdscr.keypad(True)
+        try:
+            curses.start_color()
+        except:
+            pass
+        app(stdscr)
     except Exception as e:
-        print(f"Critical error, please check the log file in {project_dir} and report any software issues")
         logger.critical("Critical error in main", exc_info=True)
-        return 1
-    logger.info("ModTerm session ended")
-    return 0
+        rc = 1
+    finally:
+        if 'stdscr' in locals():
+            stdscr.keypad(False)
+            curses.echo()
+            curses.nocbreak()
+            curses.endwin()
+    if rc == 1:
+        print(f"Critical error, please check the log file in {project_dir} and report any software issues")
+    logger.info(f"ModTerm session exited with code {rc}")
+    return rc
 
 
 if __name__ == "__main__":
