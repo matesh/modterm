@@ -7,13 +7,13 @@ ModTerm is a terminal based modbus analyser software, written in pure Python, ut
 
 ## Features
 ### Reading registers
-ModBus registers can be read from devices connected to the computer via TCP or RTU. The registers read from the device are listed in a table, with the rows being the register numbers, and the columns being results of various register decoding methods, such as INT16, INT32, Float32, string, bits, etc. The endianness can be changed on the fly to make sense of the register contents. Supports reading registers in blocks, if the number of registers to be read is above 125, the reads are broken down to blocks of 120 register reads. Also supports reading each registers individually for the case when devices return exceptions to unsupported registers.
+ModBus registers can be read from devices connected to the computer via TCP or RTU. The registers read from the device are listed in a table, with the rows being the register numbers, and the columns being results of various register decoding methods, such as INT16, INT32, Float32, string, bits, etc. The endianness can be changed on the fly to make sense of the register contents. Supports reading registers in blocks, if the number of registers to be read is above the specified block size (maximum of 125 registers per block as per modbus specification), the reads are broken down to blocks of register reads as per block size specified. Reading registers individually one by one can be achieved by setting the block size to 1. 
 
 ![Read registers](/assets/read_registers.png)
 ![Read registers result](/assets/registers.png)
 
 ### Writing registers
-Registers with a provided encoding method can be written into one or more registers
+Registers with a provided encoding method can be written into the required number of registers. When the multicast option is enabled, the register write operation is sent to unit ID 0 (regardless of the defined unit ID) and no response is expected. 
 
 ![Write registers](/assets/write_register_menu.png)
 
@@ -44,12 +44,8 @@ For now, please report any issues with decoding, inconsistencies, bugs and crash
 
 Feel free to suggest improvements and changes that would help 
 
-## Development path
+## Development roadmap
 The below describes the features planned to be added for each point release in the future. _All the below are subject to change_
-### V1.0
-- Testing on multiple platforms and making the initial set of features robust and bug-free enough for a proper point release.
-- Add logging and proper error handling
-- Multicast writes
 
 ### V1.1
 - Add coil and discrete input reads/writes (where applicable)

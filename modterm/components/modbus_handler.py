@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
-import curses
 from typing import Optional, List, Union
 from dataclasses import dataclass
 from pymodbus.client import ModbusTcpClient
@@ -36,6 +35,8 @@ pymodbus_apply_logging_config(logging.CRITICAL)
 
 (INVALID, WORD, DWORD) = range(3)
 
+logger = logging.getLogger("ModTerm")
+
 
 @dataclass
 class Header:
@@ -44,6 +45,7 @@ class Header:
 
 
 word_columns = [
+    Header("Idx", 4),
     Header("Addr", 6),
     Header("HAdr", 5),
     Header("HexV", 5),
@@ -67,19 +69,23 @@ class ModbusHandler:
         self.last_data = []
         self.last_command = None
 
-    def get_client(self, modbus_config: ModbusConfig, timeout: float = None) -> Optional[Union[ModbusTcpClient,
-                                                                                               ModbusSerialClient]]:
+    def get_client(self,
+                   modbus_config: ModbusConfig,
+                   timeout: float = None,
+                   multicast_enable=False) -> Optional[Union[ModbusTcpClient, ModbusSerialClient]]:
         if modbus_config.mode == TCP:
             client = ModbusTcpClient(host=modbus_config.ip,
                                      port=modbus_config.port,
-                                     timeout=1 if timeout is None else timeout)
+                                     timeout=1 if timeout is None else timeout,
+                                     broadcast_enable=multicast_enable)
         else:
             client = ModbusSerialClient(port=modbus_config.interface,
                                         baudrate=modbus_config.baud_rate,
                                         bytesize=modbus_config.bytesize,
                                         parity=modbus_config.parity,
                                         stopbits=modbus_config.stopbits,
-                                        timeout=1 if timeout is None else timeout)
+                                        timeout=1 if timeout is None else timeout,
+                                        broadcast_enable=multicast_enable)
         try:
             client.connect()
         except ConnectionException:
@@ -111,16 +117,22 @@ class ModbusHandler:
             is_word = bool(register is not None)
             is_dword = bool(len(self.last_data) > idx + 1 and self.last_data[idx+1] is not None)
             return_row = []
-            if is_word and is_dword:
+            if is_word:
                 decoder = Decoder.fromRegisters(self.last_data[idx:idx + 2] if is_dword else self.last_data[idx:idx + 1],
                                                 byteorder="<" if modbus_config.byte_order == LittleEndian else ">",
                                                 wordorder="<" if modbus_config.word_order == LittleEndian else ">")
 
             for header in word_columns:
+                if header.title == "Idx":
+                    return_row.append('{num: >{width}}'.format(num=idx, width=header.padding))
+                    continue
+
                 if header.title == "Addr":
                     return_row.append('{num: >{width}}'.format(num=idx + start_reg, width=header.padding))
+                    continue
                 if header.title == "HAdr":
                     return_row.append("{num: >{padding}X}".format(num=idx+start_reg, padding=header.padding))
+                    continue
 
                 if not is_word:
                     return_row.append("{text: >{padding}}".format(text="--", padding=header.padding))
@@ -128,26 +140,31 @@ class ModbusHandler:
 
                 if header.title == "HexV":
                     return_row.append("{num: >{padding}X}".format(num=register, padding=header.padding))
+                    continue
                 if header.title == "U16":
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_16bit_uint(),
                                                                  padding=header.padding))
+                    continue
                 if header.title == "I16":
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_16bit_int(),
                                                                  padding=header.padding))
-                if not is_dword:
+                    continue
+                if not is_dword and header.title not in ("St", "Bits"):
                     return_row.append("{text: >{padding}}".format(text="--", padding=header.padding))
                     continue
 
                 if header.title == "U32":
-                        decoder.reset()
-                        return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_uint(),
-                                                                     padding=header.padding))
+                    decoder.reset()
+                    return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_uint(),
+                                                                 padding=header.padding))
+                    continue
                 if header.title == "I32":
                     decoder.reset()
                     return_row.append("{num: >{padding}}".format(num=decoder.decode_32bit_int(),
                                                                  padding=header.padding))
+                    continue
                 if header.title == "F32":
                     decoder.reset()
                     number = decoder.decode_32bit_float()
@@ -155,6 +172,7 @@ class ModbusHandler:
                     if len(str(number_string)) > 11:
                         number_string = "{0:0.5e}".format(number)
                     return_row.append("{num: >{padding}}".format(num=number_string, padding=header.padding))
+                    continue
                 if header.title == "St":
                     if not modbus_config.byte_order == LittleEndian:
                         first = register >> 8
@@ -166,11 +184,13 @@ class ModbusHandler:
                     second = chr(second) if 31 < second < 127 else "-"
                     return_row.append("{}{}".format(first if len(first) != 0 else "-",
                                                     second if len(second) != 0 else "-"))
+                    continue
 
                 if header.title == "Bits":
                     decoder.reset()
                     bits = "{0:016b}".format(decoder.decode_16bit_uint())
                     return_row.append(f"{bits[0:4]} {bits[4:8]} {bits[8:12]} {bits[12:16]}")
+                    continue
             return_rows.append(return_row)
         return TableContents(header=WORDS_HEADER_ROW, rows=return_rows)
 
@@ -181,7 +201,10 @@ class ModbusHandler:
         if self.last_data == [] or self.last_command is None:
             return None
         if self.last_command == INPUT or self.last_command == HOLDING:
-            return self.process_words(modbus_config, read_config)
+            try:
+                return self.process_words(modbus_config, read_config)
+            except Exception:
+                logger.critical("Failed to process registers", exc_info=True)
         # return self.process_coils(modbus_config)
 
     def read_registers(self, command: callable, address: int, count: int, slave: int) -> List[Optional[int]]:
@@ -231,8 +254,10 @@ class ModbusHandler:
                 count = 0
 
     def write_registers(self, modbus_config: ModbusConfig, write_config: WriteConfig, format_mapping: dict):
-        # if write_config["multicast"]
-        client = self.get_client(modbus_config)
+        unit_id = 0 if write_config.multicast else write_config.unit
+
+        client = self.get_client(modbus_config,
+                                 multicast_enable=write_config.multicast)
         if client is None:
             return None
         format = format_mapping[write_config.format]
@@ -243,9 +268,12 @@ class ModbusHandler:
         try:
             result = client.write_registers(address=int(write_config.address),
                                             values=encoder.to_registers(),
-                                            slave=write_config.unit)
+                                            slave=unit_id)
         except Exception as e:
             self.status_text_callback(f"Failed to write register: {e}")
+            return
+        if write_config.multicast:
+            self.status_text_callback("Multicast message sent with unit ID 0, no response expected")
             return
         if hasattr(result, "isError") and result.isError():
             self.status_text_callback(f"Failed to write register: {result}")

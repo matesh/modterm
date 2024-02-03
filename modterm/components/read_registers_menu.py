@@ -28,8 +28,8 @@ from modterm.components.config_handler import load_read_config, save_read_config
 
 class ReadRegistersMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
-        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        width = 100 if 102 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 30 if 32 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
         self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
         self.is_valid = self.dialog.is_valid
         if not self.is_valid:
@@ -138,6 +138,8 @@ class ReadRegistersMenu:
         if x == 27:
             return None
         to_return = self.modbus_handler.get_data_rows(self.screen, modbus_config, self.configuration)
+        if to_return is None:
+            self.add_status_text("Failed to process registers, check the log for details.")
         self.add_status_text("Press any key to close this panel")
         self.dialog.window.refresh()
         self.screen.nodelay(False)

@@ -24,15 +24,14 @@ from modterm.components.hepers import get_text_input
 from modterm.components.modbus_handler import ModbusHandler
 from modterm.components.config_handler import load_write_config, save_write_config
 from modterm.components.scrollable_list import SelectWindow
-from modterm.components.debug_output import log
 from modterm.components.definitions import formats, TableContents
 
 
 class WriteRegistersMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
-        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
-        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        width = 100 if 102 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 30 if 32 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(screen, height, width, title="Writre registers", min_width=40, min_height=15)
         self.is_valid = self.dialog.is_valid
         if not self.is_valid:
             return
@@ -78,7 +77,7 @@ class WriteRegistersMenu:
             self.configuration.address = int(start_register)
 
     def get_unit_id(self):
-        unit_id = get_text_input(self.dialog.window, 3, 3, 23, str(self.configuration.unit))
+        unit_id = get_text_input(self.dialog.window, 4, 3, 23, str(self.configuration.unit))
         try:
             if not 0 < int(unit_id) < 256:
                 raise AttributeError
