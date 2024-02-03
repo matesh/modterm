@@ -29,9 +29,9 @@ from modterm.components.definitions import formats, TableContents
 
 class WriteRegistersMenu:
     def __init__(self, screen, normal_text, highlighted_text):
-        width = 118 if 120 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
-        height = 40 if 42 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
-        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        width = 100 if 102 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
+        height = 30 if 32 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(screen, height, width, title="Writre registers", min_width=40, min_height=15)
         self.is_valid = self.dialog.is_valid
         if not self.is_valid:
             return
