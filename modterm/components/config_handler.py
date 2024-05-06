@@ -85,7 +85,7 @@ def config_file_manager(action: ConfigOperation,
             with open(config_file, "r") as configfile:
                 loaded_config: dict = loads(configfile.read())
         except Exception as e:
-            # TODO log
+            loaded_config = {}
             pass
         return config_class.from_dict(loaded_config)
     else:
