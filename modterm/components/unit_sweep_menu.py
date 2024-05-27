@@ -55,7 +55,7 @@ class UnitSweepMenu:
         self.dialog.window.refresh()
 
     def add_status_text(self, text):
-        if self.status_index == 39:
+        if self.status_index == self.max_status_index:
             self.dialog.window.clear()
             self.draw()
             self.status_index = 11

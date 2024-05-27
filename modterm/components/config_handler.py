@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from json import loads, dumps
 from modterm.components.definitions import CONFIG_DIR, ConfigType, ModbusConfig, ReadConfig, WriteConfig, \
-                                           UnitSweepConfig
+    UnitSweepConfig, ExportConfig
 
 
 class ConfigOperation(Enum):
@@ -60,14 +60,17 @@ def config_file_manager(action: ConfigOperation,
                         config_class: Optional[Union[Type[ModbusConfig],
                                                      Type[ReadConfig],
                                                      Type[WriteConfig],
-                                                     Type[UnitSweepConfig]]] = None,
+                                                     Type[UnitSweepConfig],
+                                                     Type[ExportConfig]]] = None,
                         config_to_save: Optional[Union[ModbusConfig,
                                                        ReadConfig,
                                                        WriteConfig,
-                                                       UnitSweepConfig]] = None) -> Optional[Union[ModbusConfig,
-                                                                                                   ReadConfig,
-                                                                                                   WriteConfig,
-                                                                                                   UnitSweepConfig]]:
+                                                       UnitSweepConfig,
+                                                       ExportConfig]] = None) -> Optional[Union[ModbusConfig,
+                                                                                                ReadConfig,
+                                                                                                WriteConfig,
+                                                                                                UnitSweepConfig,
+                                                                                                ExportConfig]]:
 
     if (config_dir := get_project_dir()) is None:
         # TODO log error
@@ -85,7 +88,7 @@ def config_file_manager(action: ConfigOperation,
             with open(config_file, "r") as configfile:
                 loaded_config: dict = loads(configfile.read())
         except Exception as e:
-            # TODO log
+            loaded_config = {}
             pass
         return config_class.from_dict(loaded_config)
     else:
@@ -141,3 +144,15 @@ def save_unit_sweep_config(config: UnitSweepConfig):
     return config_file_manager(action=ConfigOperation.SAVE,
                                config_type=ConfigType.UnitSweepConfig,
                                config_to_save=config)
+
+
+def save_export_config(config: ExportConfig):
+    return config_file_manager(action=ConfigOperation.SAVE,
+                               config_type=ConfigType.ExportConfig,
+                               config_to_save=config)
+
+
+def load_export_config() -> ExportConfig:
+    return config_file_manager(action=ConfigOperation.LOAD,
+                               config_type=ConfigType.ExportConfig,
+                               config_class=ExportConfig)

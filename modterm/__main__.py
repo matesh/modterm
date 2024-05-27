@@ -18,7 +18,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import curses
+import os.path
 import sys
+import time
 from os import environ, path
 import logging
 from logging.handlers import RotatingFileHandler
@@ -45,6 +47,7 @@ from modterm.components.read_registers_menu import ReadRegistersMenu
 from modterm.components.write_registers_menu import WriteRegistersMenu
 from modterm.components.unit_sweep_menu import UnitSweepMenu
 from modterm.components.popup_message import show_popup_message
+from modterm.components.export_menu import ExportMenu
 
 
 def app(screen):
@@ -101,13 +104,20 @@ def app(screen):
                     data_window.draw(table_data)
                     modbus_handler = unit_sweep_menu.modbus_handler
                 save_modbus_config(menu.configuration)
-
+        if x == ord("e"):
+            if data_window.header is None or len(data_window.data_rows) == 0:
+                show_popup_message(screen, width=40, title="Error",
+                                   message="Nothing to export!")
+            else:
+                export_menu = ExportMenu(screen, normal_text, highlighted_text, data_window.header, data_window.data_rows)
+                if export_menu.is_valid:
+                    export_menu.export_dialog()
         menu.draw()
         try:
             data_window.draw()
         except Exception:
             logger.critical("Failed to draw data window!", exc_info=True)
-            show_popup_message(screen, width=40, title="Error", message="Failed to draw data window! Please refer to the log for details and repor any software issues.")
+            show_popup_message(screen, width=40, title="Error", message="Failed to draw data window! Please refer to the log for details and report any software issues.")
         # screen.addstr(screen.getmaxyx()[0] - 1, screen.getmaxyx()[1] - 4, str(x))
         screen.refresh()
         x = screen.getch()

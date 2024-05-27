@@ -49,6 +49,7 @@ class ConfigType(Enum):
     ReadConfig = "read_config.conf"
     WriteConfig = "write_config.conf"
     UnitSweepConfig = "scan_config.conf"
+    ExportConfig = "export.conf"
 
 
 @dataclass
@@ -95,6 +96,20 @@ class WriteConfig:
     format: str = list(formats.keys())[0]
     multicast: bool = False
     value: float = 1
+
+    @classmethod
+    def from_dict(cls, config_dict):
+        return cls(**{
+            k: v for k, v in config_dict.items()
+            if k in inspect.signature(cls).parameters
+        })
+
+
+@dataclass
+class ExportConfig:
+    last_dir: Optional[str] = None
+    last_file_name: str = None
+    last_file_type: str = ".csv"
 
     @classmethod
     def from_dict(cls, config_dict):
