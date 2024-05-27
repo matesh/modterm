@@ -47,6 +47,7 @@ from modterm.components.read_registers_menu import ReadRegistersMenu
 from modterm.components.write_registers_menu import WriteRegistersMenu
 from modterm.components.unit_sweep_menu import UnitSweepMenu
 from modterm.components.popup_message import show_popup_message
+from modterm.components.export_menu import ExportMenu
 
 
 def app(screen):
@@ -103,51 +104,20 @@ def app(screen):
                     data_window.draw(table_data)
                     modbus_handler = unit_sweep_menu.modbus_handler
                 save_modbus_config(menu.configuration)
-        if x == ord("c"):
-            try:
-                read_config = load_read_config()
-                file_name = f"{read_config.unit}_{read_config.start}_{read_config.number}_{int(time.time())}.csv"
-                file_path = os.path.join(get_project_dir(), file_name)
-                with open(file_path, "w") as outfile:
-                    outfile.write(",".join(x.strip() for x in data_window.header) + os.linesep)
-                    for row in data_window.data_rows:
-                        outfile.write(",".join(x.strip() for x in row) + os.linesep)
-            except Exception as e:
-                show_popup_message(screen=screen,
-                                   width=70,
-                                   title="Error",
-                                   message=f"Failed to export data! {repr(e)}")
+        if x == ord("e"):
+            if data_window.header is None or len(data_window.data_rows) == 0:
+                show_popup_message(screen, width=40, title="Error",
+                                   message="Nothing to export!")
             else:
-                show_popup_message(screen=screen,
-                                   width=70,
-                                   title="Success",
-                                   message=f"Data exported into the below file {file_path}")
-        if x == ord("x"):
-            try:
-                read_config = load_read_config()
-                file_name = f"{read_config.unit}_{read_config.start}_{read_config.number}_{int(time.time())}.txt"
-                file_path = os.path.join(get_project_dir(), file_name)
-                with open(file_path, "w") as outfile:
-                    outfile.write(" ".join(data_window.header) + os.linesep)
-                    for row in data_window.data_rows:
-                        outfile.write(" ".join(row) + os.linesep)
-            except Exception as e:
-                show_popup_message(screen=screen,
-                                   width=70,
-                                   title="Error",
-                                   message=f"Failed to export data! {repr(e)}")
-            else:
-                show_popup_message(screen=screen,
-                                   width=70,
-                                   title="Success",
-                                   message=f"Data exported into the below file {file_path}")
-
+                export_menu = ExportMenu(screen, normal_text, highlighted_text, data_window.header, data_window.data_rows)
+                if export_menu.is_valid:
+                    export_menu.export_dialog()
         menu.draw()
         try:
             data_window.draw()
         except Exception:
             logger.critical("Failed to draw data window!", exc_info=True)
-            show_popup_message(screen, width=40, title="Error", message="Failed to draw data window! Please refer to the log for details and repor any software issues.")
+            show_popup_message(screen, width=40, title="Error", message="Failed to draw data window! Please refer to the log for details and report any software issues.")
         # screen.addstr(screen.getmaxyx()[0] - 1, screen.getmaxyx()[1] - 4, str(x))
         screen.refresh()
         x = screen.getch()
