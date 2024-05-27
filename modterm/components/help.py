@@ -30,6 +30,8 @@ help_text_rows = [
     "r - Read registers",
     "w - Write registers",
     "s - Sweep modbus units with register reads",
+    "c - Export register data as .csv",
+    "x - Export register data as formatted txt"
     # "i - Sweep IP addresses with register reads",
 ]
 

@@ -18,7 +18,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import curses
+import os.path
 import sys
+import time
 from os import environ, path
 import logging
 from logging.handlers import RotatingFileHandler
@@ -101,6 +103,44 @@ def app(screen):
                     data_window.draw(table_data)
                     modbus_handler = unit_sweep_menu.modbus_handler
                 save_modbus_config(menu.configuration)
+        if x == ord("c"):
+            try:
+                read_config = load_read_config()
+                file_name = f"{read_config.unit}_{read_config.start}_{read_config.number}_{int(time.time())}.csv"
+                file_path = os.path.join(get_project_dir(), file_name)
+                with open(file_path, "w") as outfile:
+                    outfile.write(",".join(x.strip() for x in data_window.header) + os.linesep)
+                    for row in data_window.data_rows:
+                        outfile.write(",".join(x.strip() for x in row) + os.linesep)
+            except Exception as e:
+                show_popup_message(screen=screen,
+                                   width=70,
+                                   title="Error",
+                                   message=f"Failed to export data! {repr(e)}")
+            else:
+                show_popup_message(screen=screen,
+                                   width=70,
+                                   title="Success",
+                                   message=f"Data exported into the below file {file_path}")
+        if x == ord("x"):
+            try:
+                read_config = load_read_config()
+                file_name = f"{read_config.unit}_{read_config.start}_{read_config.number}_{int(time.time())}.txt"
+                file_path = os.path.join(get_project_dir(), file_name)
+                with open(file_path, "w") as outfile:
+                    outfile.write(" ".join(data_window.header) + os.linesep)
+                    for row in data_window.data_rows:
+                        outfile.write(" ".join(row) + os.linesep)
+            except Exception as e:
+                show_popup_message(screen=screen,
+                                   width=70,
+                                   title="Error",
+                                   message=f"Failed to export data! {repr(e)}")
+            else:
+                show_popup_message(screen=screen,
+                                   width=70,
+                                   title="Success",
+                                   message=f"Data exported into the below file {file_path}")
 
         menu.draw()
         try:
