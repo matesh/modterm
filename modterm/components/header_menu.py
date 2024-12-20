@@ -84,7 +84,7 @@ class HeaderMenu:
 
     def get_ip_address(self):
         ip_address = get_text_input(self.window, 16, 2, 19, self.configuration.ip)
-        if not validate_ip(ip_address):
+        if not validate_ip(ip_address) and ip_address != "localhost":
             self.window.addstr(2, 19, "!!Invalid IP!! ")
             self.window.refresh()
             curses.napms(1000)
