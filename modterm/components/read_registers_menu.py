@@ -20,10 +20,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 from typing import Optional
 import curses
 from modterm.components.window_base import WindowBase
-from modterm.components.definitions import HOLDING, INPUT, TableContents
-from modterm.components.hepers import get_text_input
+from modterm.components.definitions import HOLDING, INPUT, COIL, DISCRETE, TableContents
+from modterm.components.hepers import get_text_input, CancelInput
+from modterm.components.scrollable_list import SelectWindow
 from modterm.components.modbus_handler import ModbusHandler
 from modterm.components.config_handler import load_read_config, save_read_config
+
+MENU_LABELS = {
+    2: "F2 - Command: ",
+    3: "F3 - Start register: ",
+    4: "F4 - Number of registers to read: ",
+    5: "F5 - Modbus unit ID: ",
+    6: "F6 - Block size: ",
+    7: "Start reading, ESC to interrupt the process ",
+}
 
 
 class ReadRegistersMenu:
@@ -38,20 +48,43 @@ class ReadRegistersMenu:
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text
         self.screen = screen
-        self.start_status_index = 10
+        self.start_status_index = max(MENU_LABELS.keys()) + 2
         self.status_index = self.start_status_index
         self.modbus_handler = ModbusHandler(self.add_status_text)
 
         self.configuration = load_read_config()
 
+        self.position = max(MENU_LABELS.keys())
+
+        self.menu_values = {
+            2: "command",
+            3: "start",
+            4: "number",
+            5: "unit",
+            6: "block_size",
+            7: ""}
+
+        self.position_commands = {
+            2: self.switch_command,
+            3: self.get_start_register,
+            4: self.get_number_of_registers,
+            5: self.get_unit_id,
+            6: self.get_block_size}
+
     def draw(self):
         self.dialog.draw_window()
-        self.dialog.window.addstr(2, 2, f"F2 - Command: {self.configuration.command}")
-        self.dialog.window.addstr(3, 2, f"F3 - Start register: {self.configuration.start}")
-        self.dialog.window.addstr(4, 2, f"F4 - Number of registers to read: {self.configuration.number}")
-        self.dialog.window.addstr(5, 2, f"F5 - Modbus unit ID: {self.configuration.unit}")
-        self.dialog.window.addstr(6, 2, f"F6 - Block size: {self.configuration.block_size}")
-        self.dialog.window.addstr(8, 2, f"Press ENTER to start reading, ESC to interrupt the process")
+        for position, label in MENU_LABELS.items():
+            value_prop = str(self.menu_values[position])
+            value = str(getattr(self.configuration, value_prop)) if len(value_prop) > 0 else ""
+            if len(value) == 0 and self.position == position:
+                self.dialog.window.addstr(position, 2, label, self.highlighted_text)
+            else:
+                self.dialog.window.addstr(position, 2, label, self.normal_text)
+
+            if self.position == position and position != max(MENU_LABELS.keys()):
+                self.dialog.window.addstr(position, 2 + len(label), value, self.highlighted_text)
+            else:
+                self.dialog.window.addstr(position, 2 + len(label), value, self.normal_text)
         self.dialog.window.refresh()
 
     def add_status_text(self, text):
@@ -64,15 +97,19 @@ class ReadRegistersMenu:
         self.dialog.window.refresh()
 
     def switch_command(self):
-        if self.configuration.command == HOLDING:
-            self.configuration.command = INPUT
-        # elif self.configuration["command"] == INPUT:
-        #     self.configuration["command"] = COIL
-        else:
-            self.configuration.command = HOLDING
+        command_list = [INPUT, HOLDING, COIL, DISCRETE]
+        width = len(max(command_list, key=len)) + 4
+        selector = SelectWindow(self.screen, len(command_list) + 2, width, self.dialog.window.getbegyx()[0] + 3,
+                                self.dialog.window.getbegyx()[1] + 15, self.normal_text, self.highlighted_text,
+                                command_list)
+        if (selection := selector.get_selection()) is not None:
+            self.configuration.command = selection
 
     def get_start_register(self):
-        start_register = get_text_input(self.dialog.window, 20, 3, 23, str(self.configuration.start))
+        try:
+            start_register = get_text_input(self.dialog.window, 20, 3, 23, str(self.configuration.start))
+        except CancelInput:
+            return
         try:
             if not 0 <= int(start_register) < 65535:
                 raise AttributeError
@@ -84,7 +121,10 @@ class ReadRegistersMenu:
             self.configuration.start = int(start_register)
 
     def get_number_of_registers(self):
-        number_of_regs = get_text_input(self.dialog.window, 20, 4, 36, str(self.configuration.number))
+        try:
+            number_of_regs = get_text_input(self.dialog.window, 20, 4, 36, str(self.configuration.number))
+        except CancelInput:
+            return
         try:
             if not 0 < int(number_of_regs) < 10000:
                 raise AttributeError
@@ -96,7 +136,10 @@ class ReadRegistersMenu:
             self.configuration.number = int(number_of_regs)
 
     def get_unit_id(self):
-        unit_id = get_text_input(self.dialog.window, 5, 5, 23, str(self.configuration.unit))
+        try:
+            unit_id = get_text_input(self.dialog.window, 5, 5, 23, str(self.configuration.unit))
+        except CancelInput:
+            return
         try:
             if not 0 < int(unit_id) < 256:
                 raise AttributeError
@@ -108,7 +151,10 @@ class ReadRegistersMenu:
             self.configuration.unit = int(unit_id)
 
     def get_block_size(self):
-        unit_id = get_text_input(self.dialog.window, 4, 6, 19, str(self.configuration.block_size))
+        try:
+            unit_id = get_text_input(self.dialog.window, 4, 6, 19, str(self.configuration.block_size))
+        except CancelInput:
+            return
         try:
             if not (1 <= int(unit_id) <= 125):
                 raise AttributeError
@@ -122,17 +168,43 @@ class ReadRegistersMenu:
     def read_registers(self, modbus_config) -> Optional[TableContents]:
         self.draw()
         x = self.screen.getch()
-        while x != 27 and x != ord("\n"):
+        while x != 27:
+            if x == ord('\n') and self.position == max(MENU_LABELS.keys()):
+                break
             if x == curses.KEY_F2:
+                self.position = 2
+                self.draw()
                 self.switch_command()
             if x == curses.KEY_F3:
+                self.position = 3
+                self.draw()
                 self.get_start_register()
             if x == curses.KEY_F4:
+                self.position = 4
+                self.draw()
                 self.get_number_of_registers()
             if x == curses.KEY_F5:
+                self.position = 5
+                self.draw()
                 self.get_unit_id()
             if x == curses.KEY_F6:
+                self.position = 6
+                self.draw()
                 self.get_block_size()
+            if x == curses.KEY_DOWN:
+                self.position += 1
+                if self.position > max(MENU_LABELS.keys()):
+                    self.position = max(MENU_LABELS.keys())
+            if x == curses.KEY_UP:
+                self.position -= 1
+                if self.position < min(MENU_LABELS.keys()):
+                    self.position = min(MENU_LABELS.keys())
+            if x == curses.KEY_END:
+                self.position = max(MENU_LABELS.keys())
+            if x == curses.KEY_HOME:
+                self.position = min(MENU_LABELS.keys())
+            if x == ord('\n'):
+                self.position_commands[self.position]()
             self.draw()
             x = self.screen.getch()
         if x == 27:

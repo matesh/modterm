@@ -24,7 +24,7 @@ from pymodbus.pdu import ExceptionResponse, ModbusExceptions
 from pymodbus.exceptions import ConnectionException, ModbusIOException
 from pymodbus.client.serial import ModbusSerialClient
 from modterm.components.definitions import HOLDING, INPUT, LittleEndian, ModbusConfig, ReadConfig, WriteConfig, \
-                                           TableContents, TCP, UnitSweepConfig
+                                           TableContents, TCP, UnitSweepConfig, COIL, DISCRETE
 import logging
 from pymodbus import pymodbus_apply_logging_config
 from pymodbus.payload import BinaryPayloadDecoder as Decoder
@@ -58,9 +58,22 @@ word_columns = [
     Header("Bits", 19)]
 
 
+bits_columns = [
+    Header("Idx", 4),
+    Header("Addr", 6),
+    Header("HAdr", 5),
+    Header("HexV", 5),
+    Header("Val", 6)]
+
+
 WORDS_HEADER_ROW = []
 for header_def in word_columns:
     WORDS_HEADER_ROW.append("{number: >{align}}".format(number=header_def.title, align=header_def.padding))
+
+
+BITS_HEADER_ROW = []
+for header_def in bits_columns:
+    BITS_HEADER_ROW.append("{number: >{align}}".format(number=header_def.title, align=header_def.padding))
 
 
 class ModbusHandler:
@@ -101,13 +114,13 @@ class ModbusHandler:
         self.status_text_callback("Starting transaction")
         if read_config.command == HOLDING:
             self.last_data = self.get_register_blocks(screen, client.read_holding_registers, read_config)
-            self.last_command = read_config.command
-        else:  # elif read_config.command == INPUT:
+        elif read_config.command == INPUT:
             self.last_data = self.get_register_blocks(screen, client.read_input_registers, read_config)
-            self.last_command = read_config.command
-        # else:
-        #     self.last_data = self.get_registers(client.read_coils, read_config)
-        #     self.last_command = read_config.command
+        elif read_config.command == DISCRETE:
+            self.last_data = self.get_register_blocks(screen, client.read_discrete_inputs, read_config, bits=True)
+        else:
+            self.last_data = self.get_register_blocks(screen, client.read_coils, read_config, bits=True)
+        self.last_command = read_config.command
         return self.process_result(modbus_config, read_config)
 
     def process_words(self, modbus_config: ModbusConfig, read_config: ReadConfig) -> TableContents:
@@ -194,8 +207,32 @@ class ModbusHandler:
             return_rows.append(return_row)
         return TableContents(header=WORDS_HEADER_ROW, rows=return_rows)
 
-    # def process_coils(self, modbus_config: ModbusConfig, read_config: ReadConfig):
-    #     return [""], [""]
+    def process_coils(self, modbus_config: ModbusConfig, read_config: ReadConfig):
+        return_rows = []
+        start_bit = read_config.start
+        for idx, bit in enumerate(self.last_data):
+            return_row = []
+            for header in bits_columns:
+                if header.title == "Idx":
+                    return_row.append('{num: >{width}}'.format(num=idx, width=header.padding))
+
+                if header.title == "Addr":
+                    return_row.append('{num: >{width}}'.format(num=idx + start_bit, width=header.padding))
+                    continue
+
+                if header.title == "HAdr":
+                    return_row.append("{num: >{padding}X}".format(num=idx+start_bit, padding=header.padding))
+                    continue
+
+                if header.title == "HexV":
+                    return_row.append("{num: >{padding}X}".format(num=bit, padding=header.padding))
+                    continue
+
+                if header.title == "Val":
+                    return_row.append("{num: >{padding}}".format(num=bit, padding=header.padding))
+                    continue
+            return_rows.append(return_row)
+        return TableContents(header=BITS_HEADER_ROW, rows=return_rows)
 
     def process_result(self, modbus_config: ModbusConfig, read_config: ReadConfig) -> Optional[TableContents]:
         if self.last_data == [] or self.last_command is None:
@@ -205,9 +242,13 @@ class ModbusHandler:
                 return self.process_words(modbus_config, read_config)
             except Exception:
                 logger.critical("Failed to process registers", exc_info=True)
-        # return self.process_coils(modbus_config)
+        elif self.last_command == COIL or self.last_command == DISCRETE:
+            try:
+                return self.process_coils(modbus_config, read_config)
+            except Exception:
+                logger.critical("Failed to process bits", exc_info=True)
 
-    def read_registers(self, command: callable, address: int, count: int, slave: int) -> List[Optional[int]]:
+    def read_registers(self, command: callable, address: int, count: int, slave: int, bits:bool = False) -> List[Optional[int]]:
         try:
             result = command(address=address, count=count, slave=slave)
         except ConnectionException as e:
@@ -217,14 +258,17 @@ class ModbusHandler:
             self.status_text_callback(f"Failed to read {slave}, {address}, {count}, {result}")
             return [None] * count
         self.status_text_callback(f"Successfully read {slave}, {address}, {count}")
-        return result.registers
+        if not bits:
+            return result.registers
+        return result.bits[:count]
 
-    def get_register_blocks(self, screen, command: callable, read_config: ReadConfig) -> List[Optional[int]]:
+    def get_register_blocks(self, screen, command: callable, read_config: ReadConfig, bits: bool = False) -> List[Optional[int]]:
         if read_config.number <= read_config.block_size:
             return self.read_registers(command,
                                        address=read_config.start,
                                        count=read_config.number,
-                                       slave=read_config.unit)
+                                       slave=read_config.unit,
+                                       bits=bits)
         regs_to_return = []
         start = read_config.start
         count = read_config.number
@@ -232,7 +276,7 @@ class ModbusHandler:
         count -= read_config.block_size
         screen.nodelay(True)
         while True:
-            regs = self.read_registers(command, address=start, count=number, slave=read_config.unit)
+            regs = self.read_registers(command, address=start, count=number, slave=read_config.unit, bits=bits)
             key = screen.getch()
             if key == 27:
                 self.status_text_callback("Interrupted!")
