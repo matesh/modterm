@@ -78,9 +78,6 @@ def app(screen):
                                                           read_config=load_read_config())
                 data_window.draw(table_data)
 
-        if x == ord("\n"):
-            # TODO enter press
-            pass
         if x == curses.KEY_F1:
             display_help(screen)
         if x == ord("r"):
@@ -112,6 +109,14 @@ def app(screen):
                 export_menu = ExportMenu(screen, normal_text, highlighted_text, data_window.header, data_window.data_rows)
                 if export_menu.is_valid:
                     export_menu.export_dialog()
+        if x == ord('\n'):
+            current_row = data_window.get_current_row_data()
+            if 5 < len(current_row):
+                write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text)
+                if write_registers_menu.is_valid:
+                    write_registers_menu.write_register(menu.configuration,
+                                                        start_register=int(current_row[1]))
+                    save_modbus_config(menu.configuration)
         menu.draw()
         try:
             data_window.draw()

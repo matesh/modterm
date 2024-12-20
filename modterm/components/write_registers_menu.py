@@ -65,7 +65,7 @@ class WriteRegistersMenu:
         self.dialog.window.refresh()
 
     def get_register(self):
-        start_register = get_text_input(self.dialog.window, 5, 2, 25, str(self.configuration.address))
+        start_register = get_text_input(self.dialog.window, 6, 2, 25, str(self.configuration.address))
         try:
             if not 0 <= int(start_register) < 65535:
                 raise AttributeError
@@ -113,7 +113,9 @@ class WriteRegistersMenu:
                 return
         self.configuration.value = value
 
-    def write_register(self, modbus_config) -> Optional[TableContents]:
+    def write_register(self, modbus_config, start_register=None) -> Optional[TableContents]:
+        if start_register is not None:
+            self.configuration.address = start_register
         self.draw()
         x = self.screen.getch()
         while x != 27 and x != ord("\n"):
