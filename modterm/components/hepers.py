@@ -21,9 +21,15 @@ import curses
 from curses.textpad import Textbox
 
 
+class CancelInput(Exception):
+    pass
+
+
 def validate_text_edit_keys(keystroke):
     if keystroke == 127:
         return curses.KEY_BACKSPACE
+    if keystroke == 27:
+        raise CancelInput
     return keystroke
 
 
