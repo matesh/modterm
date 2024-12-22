@@ -24,7 +24,7 @@ from pymodbus.pdu import ExceptionResponse, ModbusExceptions
 from pymodbus.exceptions import ConnectionException, ModbusIOException
 from pymodbus.client.serial import ModbusSerialClient
 from modterm.components.definitions import HOLDING, INPUT, LittleEndian, ModbusConfig, ReadConfig, WriteConfig, \
-                                           TableContents, TCP, UnitSweepConfig, COIL, DISCRETE
+                                           TableContents, TCP, UnitSweepConfig, COIL, DISCRETE, COIL_WRITE
 import logging
 from pymodbus import pymodbus_apply_logging_config
 from pymodbus.payload import BinaryPayloadDecoder as Decoder
@@ -102,7 +102,7 @@ class ModbusHandler:
         try:
             client.connect()
         except ConnectionException:
-            self.status_text_callback("Failed to connect")
+            self.status_text_callback("Failed to connect", failed=True)
             return None
         return client
 
@@ -252,10 +252,10 @@ class ModbusHandler:
         try:
             result = command(address=address, count=count, slave=slave)
         except ConnectionException as e:
-            self.status_text_callback(f"Failed to connect: {repr(e)}")
+            self.status_text_callback(f"Failed to connect: {repr(e)}", failed=True)
             return [None] * count
         if result.isError():
-            self.status_text_callback(f"Failed to read {slave}, {address}, {count}, {result}")
+            self.status_text_callback(f"Failed to read {slave}, {address}, {count}, {result}", failed=True)
             return [None] * count
         self.status_text_callback(f"Successfully read {slave}, {address}, {count}")
         if not bits:
@@ -279,7 +279,7 @@ class ModbusHandler:
             regs = self.read_registers(command, address=start, count=number, slave=read_config.unit, bits=bits)
             key = screen.getch()
             if key == 27:
-                self.status_text_callback("Interrupted!")
+                self.status_text_callback("Interrupted!", failed=True)
                 break
             if regs is None:
                 regs_to_return += [None] * number
@@ -304,23 +304,38 @@ class ModbusHandler:
                                  multicast_enable=write_config.multicast)
         if client is None:
             return None
-        format = format_mapping[write_config.format]
-        encoder = Builder(wordorder="<" if modbus_config.word_order == LittleEndian else ">",
-                          byteorder="<" if modbus_config.byte_order == LittleEndian else ">")
-        encode_call = getattr(encoder, "add_{}".format(format))
-        encode_call(int(write_config.value))
+        if write_config.command != COIL_WRITE:
+            format = format_mapping[write_config.format]
+            encoder = Builder(wordorder="<" if modbus_config.word_order == LittleEndian else ">",
+                              byteorder="<" if modbus_config.byte_order == LittleEndian else ">")
+            encode_call = getattr(encoder, "add_{}".format(format))
+            try:
+                encode_call(write_config.value)
+            except Exception as e:
+                self.status_text_callback(f"Failed to encode value! {repr(e)}", failed=True)
+                return
         try:
-            result = client.write_registers(address=int(write_config.address),
-                                            values=encoder.to_registers(),
-                                            slave=unit_id)
+            if write_config.command == COIL_WRITE:
+                try:
+                    value = bool(int(write_config.value))
+                except Exception as e:
+                    self.status_text_callback(f"Failed to convert coil value: {e}", failed=True)
+                    return
+                result = (client.write_coil(address=int(write_config.address),
+                                            value=value,
+                                            slave=unit_id))
+            else:
+                result = client.write_registers(address=int(write_config.address),
+                                                values=encoder.to_registers(),
+                                                slave=unit_id)
         except Exception as e:
-            self.status_text_callback(f"Failed to write register: {e}")
+            self.status_text_callback(f"Failed to write register: {e}", failed=True)
             return
         if write_config.multicast:
             self.status_text_callback("Multicast message sent with unit ID 0, no response expected")
             return
         if hasattr(result, "isError") and result.isError():
-            self.status_text_callback(f"Failed to write register: {result}")
+            self.status_text_callback(f"Failed to write register: {result}", failed=True)
         else:
             self.status_text_callback(f"Register(s) successfully written")
 
@@ -339,27 +354,28 @@ class ModbusHandler:
         while unit <= sweep_config.last_unit:
             key = screen.getch()
             if key == 27:
-                self.status_text_callback("Interrupted!")
+                self.status_text_callback("Interrupted!", failed=True)
                 break
             try:
                 result = command(address=sweep_config.start_register,
                                  count=sweep_config.number_of_registers,
                                  slave=unit)
             except Exception as e:
-                to_return.rows += [" {num: >{width}}".format(num=unit, width=4),
-                                   f"No response: {repr(e)}"]
+                self.status_text_callback(f"Unit {unit}: No response: {repr(e)}", failed=True)
+                to_return.rows.append([" {num: >{width}}".format(num=unit, width=4),
+                                       f"No response: {repr(e).strip()}"])
             else:
                 if result.isError():
                     if type(result) == ModbusIOException:
-                        self.status_text_callback(f"Unit {unit}: No response: ModbusIOException")
+                        self.status_text_callback(f"Unit {unit}: No response: ModbusIOException", failed=True)
                         to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
                                                f" No response: ModbusIOException"])
                     elif type(result) == ExceptionResponse:
-                        self.status_text_callback(f"Unit {unit}: Received exception: {ModbusExceptions.decode(result.exception_code)}")
+                        self.status_text_callback(f"Unit {unit}: Received exception: {ModbusExceptions.decode(result.exception_code)}", failed=True)
                         to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
                                                f" Received exception: {result}"])
                     else:
-                        self.status_text_callback(f"Unit {unit}: Received no known response")
+                        self.status_text_callback(f"Unit {unit}: Received no known response", failed=True)
                         to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
                                                f" Received no known response: {result}"])
                 else:

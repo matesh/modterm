@@ -24,7 +24,17 @@ import time
 from os import environ, path
 import logging
 from logging.handlers import RotatingFileHandler
+
 from modterm.components.config_handler import save_modbus_config, load_read_config, get_project_dir
+from modterm.components.help import display_help
+from modterm.components.scrollable_list import ScrollableList, SelectWindow
+from modterm.components.header_menu import HeaderMenu
+from modterm.components.read_registers_menu import ReadRegistersMenu
+from modterm.components.write_registers_menu import WriteRegistersMenu
+from modterm.components.unit_sweep_menu import UnitSweepMenu
+from modterm.components.popup_message import show_popup_message
+from modterm.components.export_menu import ExportMenu
+from modterm.components.analyse_window import AnalyseWindow
 
 logger = logging.getLogger("ModTerm")
 logger.setLevel('INFO')
@@ -40,14 +50,20 @@ else:
     # Or else?
     pass
 
-from modterm.components.help import display_help
-from modterm.components.scrollable_list import ScrollableList
-from modterm.components.header_menu import HeaderMenu
-from modterm.components.read_registers_menu import ReadRegistersMenu
-from modterm.components.write_registers_menu import WriteRegistersMenu
-from modterm.components.unit_sweep_menu import UnitSweepMenu
-from modterm.components.popup_message import show_popup_message
-from modterm.components.export_menu import ExportMenu
+help_text_rows = [
+    "Main",
+    "Quit application: F10",
+    "Top menu items: F keys as indicated",
+    "Navigation in list: Arrow keys, PgUp, PgDn",
+    "Enter: Register context menu",
+    "",
+    "Register operations",
+    "r - Read registers",
+    "w - Write registers",
+    "s - Sweep modbus units with register reads",
+    "e - Export register data"
+    # "i - Sweep IP addresses with register reads",
+]
 
 
 def app(screen):
@@ -79,24 +95,24 @@ def app(screen):
                 data_window.draw(table_data)
 
         if x == curses.KEY_F1:
-            display_help(screen)
+            display_help(screen, help_text_rows)
         if x == ord("r"):
-            read_registers_menu = ReadRegistersMenu(screen, normal_text, highlighted_text)
+            read_registers_menu = ReadRegistersMenu(screen, normal_text, highlighted_text, menu.configuration)
             if read_registers_menu.is_valid:
-                table_data = read_registers_menu.read_registers(menu.configuration)
+                table_data = read_registers_menu.get_result()
                 if table_data is not None:
                     data_window.draw(table_data)
                     modbus_handler = read_registers_menu.modbus_handler
                 save_modbus_config(menu.configuration)
         if x == ord("w"):
-            write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text)
+            write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text, menu.configuration)
             if write_registers_menu.is_valid:
-                write_registers_menu.write_register(menu.configuration)
+                write_registers_menu.get_result()
                 save_modbus_config(menu.configuration)
         if x == ord("s"):
-            unit_sweep_menu = UnitSweepMenu(screen, normal_text, highlighted_text)
+            unit_sweep_menu = UnitSweepMenu(screen, normal_text, highlighted_text, menu.configuration)
             if unit_sweep_menu.is_valid:
-                table_data = unit_sweep_menu.sweep_units(modbus_config=menu.configuration)
+                table_data = unit_sweep_menu.get_result()
                 if table_data is not None:
                     data_window.draw(table_data)
                     modbus_handler = unit_sweep_menu.modbus_handler
@@ -108,15 +124,31 @@ def app(screen):
             else:
                 export_menu = ExportMenu(screen, normal_text, highlighted_text, data_window.header, data_window.data_rows)
                 if export_menu.is_valid:
-                    export_menu.export_dialog()
+                    export_menu.get_result()
         if x == ord('\n'):
-            current_row = data_window.get_current_row_data()
-            if 5 < len(current_row):
-                write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text)
-                if write_registers_menu.is_valid:
-                    write_registers_menu.write_register(menu.configuration,
-                                                        start_register=int(current_row[1]))
-                    save_modbus_config(menu.configuration)
+            if len(data_window.data_rows) != 0:
+                if data_window.bar_position is not None:
+                    row_position = data_window.bar_position + 6
+                    command_list = ["Close", "Write register", "Analyse"]
+                    if row_position > screen.getmaxyx()[0] - len(command_list) - 3:
+                        row_position = data_window.position + 6 - len(command_list) - 2
+
+                    context_menu = SelectWindow(screen, len(command_list) + 2, len(max(command_list, key=len)) + 4, row_position,
+                                                15, normal_text, highlighted_text,
+                                                command_list)
+                    if (selection := context_menu.get_selection()) is not None:
+                        if selection == "Write register":
+                            current_row = data_window.get_current_row_data()
+                            if current_row is not None and 5 <= len(current_row):
+                                write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text, menu.configuration, int(current_row[1]))
+                                if write_registers_menu.is_valid:
+                                    write_registers_menu.get_result()
+                                    save_modbus_config(menu.configuration)
+                        elif selection == "Analyse":
+                            next_4_row_data = data_window.get_next_4_row_raw_data()
+                            # show_popup_message(screen, 80, "fos", message=str(next_4_row_data))
+                            analyse_window = AnalyseWindow(screen, normal_text, highlighted_text, next_4_row_data, logger)
+                            analyse_window.draw()
         menu.draw()
         try:
             data_window.draw()

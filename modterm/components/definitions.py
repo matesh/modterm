@@ -29,6 +29,9 @@ INPUT = "Read input registers"
 COIL = "Read coils"
 DISCRETE = "Read discrete inputs"
 
+HOLDING_WRITE = "Write holding registers"
+COIL_WRITE = "Write coils"
+
 LittleEndian = "Little endian"
 BigEndian = "Big endian"
 
@@ -40,7 +43,8 @@ formats = {
     "INT16": "16bit_int",
     "UINT32": "32bit_uint",
     "INT32": "32bit_int",
-    # "FLOAT32": "32bit_float"
+    "FLOAT32": "32bit_float",
+    "BIT": "bits"
 }
 
 
@@ -91,6 +95,7 @@ class ReadConfig:
 
 @dataclass
 class WriteConfig:
+    command: str = HOLDING
     address: int = 0
     unit: int = 1
     format: str = list(formats.keys())[0]
