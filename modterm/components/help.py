@@ -21,24 +21,14 @@ import curses
 from modterm.components.window_base import WindowBase
 
 
-help_text_rows = [
-    "",
-    "Quit application: F10",
-    "Top menu items: F keys as indicated",
-    "",
-    "Register operations",
-    "r - Read registers",
-    "w - Write registers",
-    "s - Sweep modbus units with register reads",
-    "e - Export register data"
-    # "i - Sweep IP addresses with register reads",
-]
-
-def display_help(screen):
-    help_window = WindowBase(screen, 20, 80, title="Help")
+def display_help(screen, help_text_rows):
+    help_window = WindowBase(screen, len(help_text_rows) + 5, 80, title=f"Help - {help_text_rows[0]}")
     help_window.draw_window()
-    for idx, row in enumerate(help_text_rows, start=1):
+    idx = 0
+    for idx, row in enumerate(help_text_rows[1:], start=2):
         help_window.window.addstr(idx, 2, row)
+    help_window.window.addstr(idx+1, 2, "")
+    help_window.window.addstr(idx+2, 2, "Press ESC to dismiss help")
     help_window.window.refresh()
     x = screen.getch()
     while x != 27:

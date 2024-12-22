@@ -46,6 +46,7 @@ class ScrollableList:
             107: self.step_down,
             108: self.page_down
         }
+        self.bar_position = None
 
     def draw(self, table_data: TableContents = None):
         self.window.erase()
@@ -65,6 +66,7 @@ class ScrollableList:
             self.position = 1
         if len(self.data_rows) == 0:
             self.window.addstr(1, 1, self.empty_list_message)
+            self.bar_position = None
             self.window.refresh()
             return
 
@@ -86,6 +88,7 @@ class ScrollableList:
                 string = str(self.data_rows[i-1])
             if (i + (height * (self.page - 1)) == self.position + (height * (self.page - 1))):
                 self.window.addstr(i - (height * (self.page - 1)) + start_row, 2, string, self.highlighted_text)
+                self.bar_position = i - (height * (self.page - 1)) + start_row
             else:
                 self.window.addstr(i - (height * (self.page - 1)) + start_row, 2, string, self.normal_text)
             if i == height:
@@ -147,6 +150,15 @@ class ScrollableList:
             return self.data_rows[self.position - 1]
         except IndexError:
             return None
+
+    def get_next_4_row_raw_data(self):
+        to_return = []
+        rows = self.data_rows[self.position-1:]
+        if 4 < len(rows):
+            rows = rows[:4]
+        for row in rows:
+            to_return.append(int(row[4]))
+        return to_return
 
     def check_navigate(self, keystroke):
         try:

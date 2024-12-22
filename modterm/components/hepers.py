@@ -18,12 +18,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import curses
+import textwrap
 from curses.textpad import Textbox
+
+
+class CancelInput(Exception):
+    pass
 
 
 def validate_text_edit_keys(keystroke):
     if keystroke == 127:
         return curses.KEY_BACKSPACE
+    if keystroke == 27:
+        raise CancelInput
     return keystroke
 
 
@@ -38,3 +45,23 @@ def get_text_input(window, width, y, x, default):
     content = tb.gather().strip()
     curses.curs_set(0)
     return content
+
+
+def wrap_text(text, width):
+    return textwrap.fill(text, width)
+
+
+def text_input_to_int(text):
+    try:
+        if text.startswith('0x'):
+            return int(text, 16)
+        return int(text, 10)
+    except Exception:
+        return None
+
+
+def text_input_to_float(text):
+    try:
+        return float(text)
+    except Exception:
+        return None

@@ -21,9 +21,10 @@ import curses
 from modterm.components.scrollable_list import SelectWindow
 from modterm.components.serial_interface_scan import get_serial_interfaces
 from modterm.components.definitions import BigEndian, LittleEndian, TCP, RTU
-from modterm.components.hepers import get_text_input
+from modterm.components.hepers import get_text_input, CancelInput
 from modterm.components.config_handler import load_modbus_config
 from modterm import __version__
+from socket import gethostbyname
 
 
 COMMON_BAUDS = [600, 1200, 1800, 2400, 4800, 7200, 9600, 14400, 19200, 38400, 56000, 57600, 115200, 128000,
@@ -59,7 +60,7 @@ class HeaderMenu:
         self.window.box()
         self.window.addstr(1, 2, f"F2 - Modbus protocol: {self.configuration.mode}", self.normal_text)
         if self.configuration.mode == TCP:
-            self.window.addstr(2, 2, f"F3 - IP address: {self.configuration.ip}", self.normal_text)
+            self.window.addstr(2, 2, f"F3 - IP address / domain: {self.configuration.ip}", self.normal_text)
             self.window.addstr(3, 2, f"F4 - TCP port: {self.configuration.port}", self.normal_text)
         else:
             interface = f"F3 - Interface: {self.configuration.interface}"
@@ -83,16 +84,33 @@ class HeaderMenu:
             self.configuration.mode = RTU
 
     def get_ip_address(self):
-        ip_address = get_text_input(self.window, 16, 2, 19, self.configuration.ip)
-        if not validate_ip(ip_address):
-            self.window.addstr(2, 19, "!!Invalid IP!! ")
+        try:
+            ip_address = get_text_input(self.window, 40, 2, 28, self.configuration.ip)
+        except CancelInput:
+            return
+        try:
+            if validate_ip(ip_address):
+                self.configuration.ip = ip_address
+                return
+            if ip_address == "localhost":
+                self.configuration.ip = ip_address
+                return
+            ip = gethostbyname(ip_address)
+            if validate_ip(ip):
+                self.configuration.ip = ip_address
+                return
+        except Exception as e:
+            self.window.addstr(2, 28, f"Invalid IP or hostname!")
             self.window.refresh()
             curses.napms(1000)
         else:
             self.configuration.ip = ip_address
 
     def get_tcp_port(self):
-        port = get_text_input(self.window, 16, 3, 17, str(self.configuration.port))
+        try:
+            port = get_text_input(self.window, 16, 3, 17, str(self.configuration.port))
+        except CancelInput:
+            return
         try:
             if not 0 < int(port) < 65535:
                 raise AttributeError
