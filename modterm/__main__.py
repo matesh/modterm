@@ -134,7 +134,7 @@ def app(screen):
                         row_position = data_window.position + 6 - len(command_list) - 2
 
                     context_menu = SelectWindow(screen, len(command_list) + 2, len(max(command_list, key=len)) + 4, row_position,
-                                                15, normal_text, highlighted_text,
+                                                25, normal_text, highlighted_text,
                                                 command_list)
                     if (selection := context_menu.get_selection()) is not None:
                         if selection == "Write register":

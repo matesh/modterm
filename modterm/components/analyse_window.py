@@ -17,21 +17,14 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
-from typing import Optional
-import curses
-from functools import partial
-from textwrap import wrap
-from abc import abstractmethod
 from modterm.components.window_base import WindowBase
-from modterm.components.definitions import TableContents
-from modterm.components.help import display_help
 from pymodbus.payload import BinaryPayloadDecoder as Decoder
 
 
 class AnalyseWindow:
     def __init__(self, screen, normal_text, highlighted_text, registers, logger):
         width = 150 if 152 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
-        height = 20 if 22 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
+        height = 23 if 22 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
         self.logger = logger
         self.screen = screen
         self.normal_text = normal_text
@@ -41,14 +34,23 @@ class AnalyseWindow:
         self.column_paddings = [9, 0, 0, 0, 0]
         self.text_rows = [["Word/Byte", "Big/Big", "Big/Little", "Little/Big", "Little/Little"]]
         types = {
+            "HEX16": "decode_16bit_uint",
             "UINT16": "decode_16bit_uint",
             "INT16": "decode_16bit_int",
+            "HEX32": "decode_32bit_uint",
             "UINT32": "decode_32bit_uint",
             "INT32": "decode_32bit_int",
+            "HEX64": "decode_64bit_uint",
             "UINT64": "decode_64bit_uint",
             "INT64": "decode_64bit_int",
             "Float32": "decode_32bit_float",
             "Float64": "decode_64bit_float",
+        }
+
+        format_strings = {
+            "HEX16": "{:04X}",
+            "HEX32": "{:08X}",
+            "HEX64": "{:016X}",
         }
 
         decoders = [
@@ -63,7 +65,14 @@ class AnalyseWindow:
                 self.column_paddings[0] = len(type)
             for idx, decoder in enumerate(decoders, start=1):
                 try:
-                    data = str(getattr(decoder, decode_method)())
+                    if type.startswith("HEX"):
+                        data = format_strings[type].format(getattr(decoder, decode_method)())
+                        i = 4
+                        while i < len(data):
+                            data = data[:i] + " " + data[i:]
+                            i += 5
+                    else:
+                        data = str(getattr(decoder, decode_method)())
                     decoder.reset()
                 except Exception as e:
                     data = f"N/A"

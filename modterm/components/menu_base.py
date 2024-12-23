@@ -72,7 +72,8 @@ class MenuBase:
                                         "operation. Press del or backspace on a setting to clear and edit it "
                                         "Upon all transactions being successful, you will be returned to the "
                                         "main screen. Upon any unsuccessful operation, you will be offered to "
-                                        "retry or return to the main screen.", 76))
+                                        "retry or return to the main screen. Numeric inputs understand hexadecimal"
+                                        "as well, start the hex number with the 0x prefix", 76))
 
     def jump_to(self, position=None, offset=None, execute=False):
         if position is None and offset is None:
