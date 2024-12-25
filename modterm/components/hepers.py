@@ -41,7 +41,11 @@ def get_text_input(window, width, y, x, default):
     tb = Textbox(number_entry, insert_mode=True)
     curses.curs_set(1)
     window.refresh()
-    tb.edit(validate_text_edit_keys)
+    try:
+        tb.edit(validate_text_edit_keys)
+    except CancelInput:
+        curses.curs_set(0)
+        raise
     content = tb.gather().strip()
     curses.curs_set(0)
     return content
