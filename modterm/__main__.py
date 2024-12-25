@@ -61,7 +61,16 @@ help_text_rows = [
     "r - Read registers",
     "w - Write registers",
     "s - Sweep modbus units with register reads",
-    "e - Export register data"
+    "e - Export register data",
+    "",
+    "Column titles",
+    "Idx - Index in the list           Addr - Address",
+    "HAddr - Address in hexadecimal    HexV - Value in hexadecimal",
+    "U16 - Unsigned 16 bit integer     I16 - Signed 16 bit integer",
+    "HexV - Value in hexadecimal       U16 - Unsigned 16 bit integer",
+    "I16 - Signe 16 bit integer        U32 - Unsigned 32 bit integer",
+    "I32 - Signed 32 bit integer       F32 - 32 bit floating point",
+    "St - string representation        Bits - the register bits"
     # "i - Sweep IP addresses with register reads",
 ]
 
