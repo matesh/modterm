@@ -185,6 +185,8 @@ def main():
     except Exception as e:
         logger.critical("Critical error in main", exc_info=True)
         rc = 1
+    except KeyboardInterrupt:
+        pass
     finally:
         if 'stdscr' in locals():
             stdscr.keypad(False)
