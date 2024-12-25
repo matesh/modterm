@@ -34,7 +34,7 @@ class MenuBase:
         self.interfaces = interfaces
         width = 100 if 102 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
         height = 30 if 32 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
-        self.dialog = WindowBase(screen, height, width, title="Read registers", min_width=40, min_height=15)
+        self.dialog = WindowBase(screen, height, width, title=menu_name, min_width=40, min_height=15)
         self.is_valid = self.dialog.is_valid
         if not self.is_valid:
             return
@@ -121,7 +121,7 @@ class MenuBase:
             text_lines = [""]
         if self.status_index + len(text_lines) > self.dialog.height - 2:
             self.dialog.window.clear()
-            self.draw()
+            self.draw(True)
             self.status_index = self.start_status_index
         for idx, line in enumerate(text_lines):
             if idx == 0:
@@ -143,6 +143,8 @@ class MenuBase:
                 else:
                     self.draw(True)
                     to_return = self.action()
+                    curses.flushinp()
+                    self.screen.nodelay(False)
                     if self.failed_action:
                         self.add_status_text("")
                         self.add_status_text("Press any key to close this panel or ENTER to try again", highlighted=True)
