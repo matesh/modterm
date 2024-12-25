@@ -32,6 +32,7 @@ from modterm.components.header_menu import HeaderMenu
 from modterm.components.read_registers_menu import ReadRegistersMenu
 from modterm.components.write_registers_menu import WriteRegistersMenu
 from modterm.components.unit_sweep_menu import UnitSweepMenu
+from modterm.components.ip_sweep_menu import IpSweepMenu
 from modterm.components.popup_message import show_popup_message
 from modterm.components.export_menu import ExportMenu
 from modterm.components.analyse_window import AnalyseWindow
@@ -62,6 +63,7 @@ help_text_rows = [
     "w - Write registers",
     "s - Sweep modbus units with register reads",
     "e - Export register data",
+    "i - IP address sweep",
     "",
     "Column titles",
     "Idx - Index in the list           Addr - Address",
@@ -124,7 +126,13 @@ def app(screen):
                 table_data = unit_sweep_menu.get_result()
                 if table_data is not None:
                     data_window.draw(table_data)
-                    modbus_handler = unit_sweep_menu.modbus_handler
+                save_modbus_config(menu.configuration)
+        if x == ord("i"):
+            ip_sweep_menu = IpSweepMenu(screen, normal_text, highlighted_text, menu.configuration)
+            if ip_sweep_menu.is_valid:
+                table_data = ip_sweep_menu.get_result()
+                if table_data is not None:
+                    data_window.draw(table_data)
                 save_modbus_config(menu.configuration)
         if x == ord("e"):
             if data_window.header is None or len(data_window.data_rows) == 0:
@@ -136,7 +144,7 @@ def app(screen):
                     export_menu.get_result()
         if x == ord('\n'):
             if len(data_window.data_rows) != 0:
-                if data_window.bar_position is not None:
+                if data_window.bar_position is not None and 2 < len(data_window.get_current_row_data()):
                     row_position = data_window.bar_position + 6
                     command_list = ["Close", "Write register", "Analyse"]
                     if row_position > screen.getmaxyx()[0] - len(command_list) - 3:

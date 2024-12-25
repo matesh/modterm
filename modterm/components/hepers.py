@@ -51,6 +51,19 @@ def get_text_input(window, width, y, x, default):
     return content
 
 
+def validate_ip(s: str) -> bool:
+    a = s.split('.')
+    if len(a) != 4:
+        return False
+    for x in a:
+        if not x.isdigit():
+            return False
+        i = int(x)
+        if i < 0 or i > 255:
+            return False
+    return True
+
+
 def wrap_text(text, width):
     return textwrap.fill(text, width)
 

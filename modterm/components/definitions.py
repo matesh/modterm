@@ -54,6 +54,7 @@ class ConfigType(Enum):
     WriteConfig = "write_config.conf"
     UnitSweepConfig = "scan_config.conf"
     ExportConfig = "export.conf"
+    IpSweepConfig = "ip_sweep_config.conf"
 
 
 @dataclass
@@ -131,6 +132,26 @@ class UnitSweepConfig:
     command: str = HOLDING
     start_register: int = 0
     number_of_registers: int = 1
+    timeout: float = 0.2
+
+    @classmethod
+    def from_dict(cls, config_dict):
+        return cls(**{
+            k: v for k, v in config_dict.items()
+            if k in inspect.signature(cls).parameters
+        })
+
+
+@dataclass
+class IpSweepConfig:
+    subnet: str = "192.168.0"
+    start_address: int = 1
+    end_address: int = 255
+    port: int = 502
+    command: str = HOLDING
+    start_register: int = 0
+    number_of_registers: int = 1
+    unit_id: int = 1
     timeout: float = 0.2
 
     @classmethod

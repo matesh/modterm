@@ -21,7 +21,7 @@ import curses
 from modterm.components.scrollable_list import SelectWindow
 from modterm.components.serial_interface_scan import get_serial_interfaces
 from modterm.components.definitions import BigEndian, LittleEndian, TCP, RTU
-from modterm.components.hepers import get_text_input, CancelInput
+from modterm.components.hepers import get_text_input, CancelInput, validate_ip
 from modterm.components.config_handler import load_modbus_config
 from modterm import __version__
 from socket import gethostbyname
@@ -29,19 +29,6 @@ from socket import gethostbyname
 
 COMMON_BAUDS = [600, 1200, 1800, 2400, 4800, 7200, 9600, 14400, 19200, 38400, 56000, 57600, 115200, 128000,
                         230400, 460800, 500000, 921600]
-
-
-def validate_ip(s: str) -> bool:
-    a = s.split('.')
-    if len(a) != 4:
-        return False
-    for x in a:
-        if not x.isdigit():
-            return False
-        i = int(x)
-        if i < 0 or i > 255:
-            return False
-    return True
 
 
 class HeaderMenu:

@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
-
+import curses
 from typing import Optional, List, Union
 from dataclasses import dataclass
 from pymodbus.client import ModbusTcpClient
@@ -24,7 +24,7 @@ from pymodbus.pdu import ExceptionResponse, ModbusExceptions
 from pymodbus.exceptions import ConnectionException, ModbusIOException
 from pymodbus.client.serial import ModbusSerialClient
 from modterm.components.definitions import HOLDING, INPUT, LittleEndian, ModbusConfig, ReadConfig, WriteConfig, \
-                                           TableContents, TCP, UnitSweepConfig, COIL, DISCRETE, COIL_WRITE
+    TableContents, TCP, UnitSweepConfig, COIL, DISCRETE, COIL_WRITE, IpSweepConfig
 import logging
 from pymodbus import pymodbus_apply_logging_config
 from pymodbus.payload import BinaryPayloadDecoder as Decoder
@@ -225,11 +225,12 @@ class ModbusHandler:
                     continue
 
                 if header.title == "HexV":
-                    return_row.append("{num: >{padding}X}".format(num=bit, padding=header.padding))
+                    return_row.append("{num: >{padding}X}".format(num=bit, padding=header.padding)
+                                      if bit is not None else "{num: >{padding}}".format(num="-", padding=header.padding))
                     continue
 
                 if header.title == "Val":
-                    return_row.append("{num: >{padding}}".format(num=bit, padding=header.padding))
+                    return_row.append("{num: >{padding}}".format(num=str(int(bit)) if bit is not None else "-", padding=header.padding))
                     continue
             return_rows.append(return_row)
         return TableContents(header=BITS_HEADER_ROW, rows=return_rows)
@@ -280,7 +281,7 @@ class ModbusHandler:
             key = screen.getch()
             if key == 27:
                 self.status_text_callback("Interrupted!", failed=True)
-                break
+                return regs_to_return
             if regs is None:
                 regs_to_return += [None] * number
                 continue
@@ -347,6 +348,10 @@ class ModbusHandler:
         client = self.get_client(modbus_config, timeout=sweep_config.timeout)
         if sweep_config.command == HOLDING:
             command = client.read_holding_registers
+        elif sweep_config.command == COIL:
+            command = client.read_coils
+        elif sweep_config.command == DISCRETE:
+            command = client.read_discrete_inputs
         else:
             command = client.read_input_registers
         unit = sweep_config.start_unit
@@ -362,26 +367,70 @@ class ModbusHandler:
                                  slave=unit)
             except Exception as e:
                 self.status_text_callback(f"Unit {unit}: No response: {repr(e)}", failed=True)
-                to_return.rows.append([" {num: >{width}}".format(num=unit, width=4),
-                                       f"No response: {repr(e).strip()}"])
+                to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
+                                       f" No response: {repr(e).strip()}"])
             else:
                 if result.isError():
                     if type(result) == ModbusIOException:
                         self.status_text_callback(f"Unit {unit}: No response: ModbusIOException", failed=True)
-                        to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
+                        to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
                                                f" No response: ModbusIOException"])
                     elif type(result) == ExceptionResponse:
                         self.status_text_callback(f"Unit {unit}: Received exception: {ModbusExceptions.decode(result.exception_code)}", failed=True)
-                        to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
+                        to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
                                                f" Received exception: {result}"])
                     else:
                         self.status_text_callback(f"Unit {unit}: Received no known response", failed=True)
-                        to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
-                                               f" Received no known response: {result}"])
+                        to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
+                                               f" No know response received: {result}"])
                 else:
                     self.status_text_callback(f"Unit {unit}: Valid register response received!")
-                    to_return.rows.append(["{num: >{width}}".format(num=unit, width=4),
+                    to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
                                            f" Valid modbus register response received!"])
             unit += 1
-        screen.nodelay(False)
+        return to_return
+
+    def ip_sweep(self, screen, modbus_config, confiuration: IpSweepConfig) -> Optional[TableContents]:
+        to_return = TableContents(header=[
+            "IP Address",
+            "      Scan result"
+        ], rows=[])
+        address = confiuration.start_address
+        screen.nodelay(True)
+        while address <= confiuration.end_address:
+            key = screen.getch()
+            if key == 27:
+                self.status_text_callback("Interrupted!", failed=True)
+                break
+            ip = confiuration.subnet + f".{address}"
+            client = ModbusTcpClient(host=ip,
+                                     port=confiuration.port,
+                                     timeout=confiuration.timeout)
+            if confiuration.command == HOLDING:
+                command = client.read_holding_registers
+            elif confiuration.command == COIL:
+                command = client.read_coils
+            elif confiuration.command == DISCRETE:
+                command = client.read_discrete_inputs
+            else:
+                command = client.read_input_registers
+            try:
+                result = command(address=confiuration.start_register,
+                                 count=confiuration.number_of_registers,
+                                 slave=confiuration.unit_id)
+            except Exception as e:
+                self.status_text_callback(f"{ip}: No response: {repr(e)}", failed=True)
+                to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
+                                       f" No response: {repr(e).strip()}"])
+            else:
+                if result.isError():
+                    self.status_text_callback(f"{ip}: No response: {repr(result)}", failed=True)
+                    to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
+                                           f" No response: {repr(result).strip()}"])
+                else:
+                    self.status_text_callback(f"{ip}: Valid register response received!")
+                    to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
+                                           f" Valid modbus register response received!"])
+
+            address += 1
         return to_return
