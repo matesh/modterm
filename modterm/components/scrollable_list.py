@@ -19,21 +19,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import curses
 from math import ceil
-from modterm.components. definitions import TableContents
+from modterm.components.definitions import TableContents
 
 
 class ScrollableList:
-    def __init__(self, height, width, y, x, normal_text, highlighted_text, empty_list_message="No data to display"):
+    def __init__(self, height, width, y, x, normal_text, highlighted_text, empty_list_message="No data to display", added_border=False):
         self.normal_text = normal_text
+        self.added_border = added_border
         self.highlighted_text = highlighted_text
         self.empty_list_message = empty_list_message
         self.height = height - 2
         self.width = width
+        if self.added_border:
+            self.underlay_window = curses.newwin(height + 2, self.width, y - 1, x)
         self.window = curses.newwin(height, width, y, x)
         self.position = 1
         self.page = 1
         self.data_rows = []
         self.header = None
+        self.title = ""
         self.keymap = {
             curses.KEY_DOWN: self.step_down,
             curses.KEY_UP: self.step_up,
@@ -49,9 +53,19 @@ class ScrollableList:
         self.bar_position = None
 
     def draw(self, table_data: TableContents = None):
+        if self.added_border:
+            self.underlay_window.clear()
+            self.underlay_window.refresh()
         self.window.erase()
         self.window.border(0)
         self.window.box()
+        if table_data is not None and len(table_data.title):
+            self.title = table_data.title
+        if self.title != "":
+            to_draw = self.title
+            if len(self.title) > self.width - 6:
+                to_draw = to_draw[:self.width - 6]
+            self.window.addstr(0, (self.window.getmaxyx()[1] - len(to_draw)) // 2, f" {to_draw} ")
         if table_data is not None and table_data.header is not None and self.header != table_data.header:
             self.header = table_data.header
         if self.header is None:
@@ -79,6 +93,8 @@ class ScrollableList:
                     header_string += item + " "
                 else:
                     break
+            if len(header_string) > self.width - 4:
+                header_string = header_string[:self.width - 4]
             self.window.addstr(1, 2, header_string, self.normal_text)
 
         for i in range(1 + (height * (self.page - 1)), min(height + 1 + (height * (self.page - 1)), len(self.data_rows) + 1)):
@@ -86,6 +102,8 @@ class ScrollableList:
                 string = " ".join(x for x in self.data_rows[i-1])
             else:
                 string = str(self.data_rows[i-1])
+            if len(string) > self.width - 4:
+                string = string[:self.width - 4]
             if (i + (height * (self.page - 1)) == self.position + (height * (self.page - 1))):
                 self.window.addstr(i - (height * (self.page - 1)) + start_row, 2, string, self.highlighted_text)
                 self.bar_position = i - (height * (self.page - 1)) + start_row
@@ -168,14 +186,15 @@ class ScrollableList:
 
 
 class SelectWindow:
-    def __init__(self, screen,  height, width, y, x, normal_text, highlighted_text, options_list, empty_list_message="No data to display"):
+    def __init__(self, screen,  height, width, y, x, normal_text, highlighted_text, options_list, empty_list_message="No data to display", title="", added_border=False):
         self.screen = screen
         self.empty_list_message = empty_list_message
-        self.scrollable_list = ScrollableList(height, width, y, x, normal_text, highlighted_text, self.empty_list_message)
+        self.scrollable_list = ScrollableList(height, width, y, x, normal_text, highlighted_text, self.empty_list_message, added_border=added_border)
         self.options = options_list
+        self.title = title
 
     def get_selection(self):
-        self.scrollable_list.draw(TableContents(None, self.options))
+        self.scrollable_list.draw(TableContents(None, self.options, title=self.title))
         x = self.screen.getch()
         while x != 27:
             if x == curses.KEY_DOWN:

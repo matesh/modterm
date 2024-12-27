@@ -30,18 +30,17 @@ from modterm.components.help import display_help
 class MenuBase:
     def __init__(self, screen, normal_text, highlighted_text, menu_labels, config_values, interfaces, menu_name):
         self.menu_labels = menu_labels
+        self.menu_name = menu_name
         self.config_values = config_values
         self.interfaces = interfaces
-        width = 100 if 102 < screen.getmaxyx()[1] else screen.getmaxyx()[1] - 2
-        height = 30 if 32 < screen.getmaxyx()[0] else screen.getmaxyx()[0] - 2
-        self.dialog = WindowBase(screen, height, width, title=menu_name, min_width=40, min_height=15)
-        self.is_valid = self.dialog.is_valid
-        if not self.is_valid:
-            return
-        self.max_status_index = height - 2
+        self.dialog = None
+        self.is_valid = None
+        self.max_status_index = None
+        self.screen = screen
+        self.screen_size = self.screen.getmaxyx()
+        self.reset_window()
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text
-        self.screen = screen
         self.start_status_index = max(self.menu_labels.keys()) + 2
         self.status_index = self.start_status_index
         self.failed_action = False
@@ -74,6 +73,15 @@ class MenuBase:
                                         "main screen. Upon any unsuccessful operation, you will be offered to "
                                         "retry or return to the main screen. Numeric inputs understand hexadecimal"
                                         "as well, start the hex number with the 0x prefix", 76))
+
+    def reset_window(self):
+        width = 100 if 102 < self.screen.getmaxyx()[1] else self.screen.getmaxyx()[1] - 2
+        height = 30 if 32 < self.screen.getmaxyx()[0] else self.screen.getmaxyx()[0] - 2
+        self.dialog = WindowBase(self.screen, height, width, title=self.menu_name, min_width=40, min_height=15, added_border=True)
+        self.is_valid = self.dialog.is_valid
+        if not self.is_valid:
+            return
+        self.max_status_index = height - 2
 
     def jump_to(self, position=None, offset=None, execute=False):
         if position is None and offset is None:
@@ -163,6 +171,11 @@ class MenuBase:
                         return to_return
             elif x == 127 or x == curses.KEY_BACKSPACE:
                 self.interfaces[self.position](clear=True)
+            elif x == curses.KEY_RESIZE and curses.is_term_resized(self.screen_size[0], self.screen_size[1]):
+                curses.resizeterm(self.screen.getmaxyx()[0],
+                                  self.screen.getmaxyx()[1])
+                self.screen_size = self.screen.getmaxyx()
+                self.reset_window()
             self.draw()
             x = self.screen.getch()
         return None

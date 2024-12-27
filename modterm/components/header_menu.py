@@ -33,6 +33,7 @@ COMMON_BAUDS = [600, 1200, 1800, 2400, 4800, 7200, 9600, 14400, 19200, 38400, 56
 
 class HeaderMenu:
     def __init__(self, screen, normal_text: curses.color_pair, highlighted_text: curses.color_pair):
+        self.screen = screen
         self.window = curses.newwin(5, screen.getmaxyx()[1], 0, 0)
         self.normal_text = normal_text
         self.highlighted_text = highlighted_text

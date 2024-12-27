@@ -22,7 +22,7 @@ from modterm.components.window_base import WindowBase
 
 
 def display_help(screen, help_text_rows):
-    help_window = WindowBase(screen, len(help_text_rows) + 5, 80, title=f"Help - {help_text_rows[0]}")
+    help_window = WindowBase(screen, len(help_text_rows) + 5, 80, title=f"Help - {help_text_rows[0]}", added_border=True)
     help_window.draw_window()
     idx = 0
     for idx, row in enumerate(help_text_rows[1:], start=2):

@@ -166,3 +166,4 @@ class IpSweepConfig:
 class TableContents:
     header: Optional[List[str]]
     rows: List[List[str]]
+    title: str = ""

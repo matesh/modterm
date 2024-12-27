@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
-import curses
+from datetime import datetime
 from typing import Optional, List, Union
 from dataclasses import dataclass
 from pymodbus.client import ModbusTcpClient
@@ -205,9 +205,18 @@ class ModbusHandler:
                     return_row.append(f"{bits[0:4]} {bits[4:8]} {bits[8:12]} {bits[12:16]}")
                     continue
             return_rows.append(return_row)
-        return TableContents(header=WORDS_HEADER_ROW, rows=return_rows)
+        date = datetime.now().strftime("%H:%M:%S")
+        read_type = "Holding" if read_config.command == HOLDING else "Input"
+        if modbus_config.mode == TCP:
+            source = f"{modbus_config.ip}:{modbus_config.port} unit: {read_config.unit}"
+        else:
+            source = f"{modbus_config.interface}:{modbus_config.baud_rate}/{modbus_config.bytesize}{modbus_config.parity}{modbus_config.stopbits} unit {read_config.unit}"
 
-    def process_coils(self, modbus_config: ModbusConfig, read_config: ReadConfig):
+        return TableContents(header=WORDS_HEADER_ROW,
+                             rows=return_rows,
+                             title=f"{date} - {read_type} registers {read_config.start} -> {read_config.start + read_config.number} from {source}",)
+
+    def process_bits(self, modbus_config: ModbusConfig, read_config: ReadConfig):
         return_rows = []
         start_bit = read_config.start
         for idx, bit in enumerate(self.last_data):
@@ -233,7 +242,15 @@ class ModbusHandler:
                     return_row.append("{num: >{padding}}".format(num=str(int(bit)) if bit is not None else "-", padding=header.padding))
                     continue
             return_rows.append(return_row)
-        return TableContents(header=BITS_HEADER_ROW, rows=return_rows)
+        date = datetime.now().strftime("%H:%M:%S")
+        read_type = "Coils" if read_config.command == COIL else "Discrete inputs"
+        if modbus_config.mode == TCP:
+            source = f"{modbus_config.ip}:{modbus_config.port} unit: {read_config.unit}"
+        else:
+            source = f"{modbus_config.interface}:{modbus_config.baud_rate}/{modbus_config.bytesize}{modbus_config.parity}{modbus_config.stopbits} unit {read_config.unit}"
+        return TableContents(header=BITS_HEADER_ROW,
+                             rows=return_rows,
+                             title=f"{date} - {read_type} {read_config.start} -> {read_config.start + read_config.number} from {source}",)
 
     def process_result(self, modbus_config: ModbusConfig, read_config: ReadConfig) -> Optional[TableContents]:
         if self.last_data == [] or self.last_command is None:
@@ -245,7 +262,7 @@ class ModbusHandler:
                 logger.critical("Failed to process registers", exc_info=True)
         elif self.last_command == COIL or self.last_command == DISCRETE:
             try:
-                return self.process_coils(modbus_config, read_config)
+                return self.process_bits(modbus_config, read_config)
             except Exception:
                 logger.critical("Failed to process bits", exc_info=True)
 
@@ -434,3 +451,9 @@ class ModbusHandler:
 
             address += 1
         return to_return
+
+
+@dataclass
+class HistoryItem:
+    table_content: TableContents
+    modbus_handler: ModbusHandler
