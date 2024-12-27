@@ -18,9 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 import curses
-import os.path
 import sys
-import time
 from os import environ, path
 import logging
 from logging.handlers import RotatingFileHandler
@@ -32,9 +30,11 @@ from modterm.components.header_menu import HeaderMenu
 from modterm.components.read_registers_menu import ReadRegistersMenu
 from modterm.components.write_registers_menu import WriteRegistersMenu
 from modterm.components.unit_sweep_menu import UnitSweepMenu
+from modterm.components.ip_sweep_menu import IpSweepMenu
 from modterm.components.popup_message import show_popup_message
 from modterm.components.export_menu import ExportMenu
 from modterm.components.analyse_window import AnalyseWindow
+from modterm.components.modbus_handler import HistoryItem
 
 logger = logging.getLogger("ModTerm")
 logger.setLevel('INFO')
@@ -61,7 +61,18 @@ help_text_rows = [
     "r - Read registers",
     "w - Write registers",
     "s - Sweep modbus units with register reads",
-    "e - Export register data"
+    "e - Export register data",
+    "i - IP address sweep",
+    "h - Result history"
+    "",
+    "Column titles",
+    "Idx - Index in the list           Addr - Address",
+    "HAddr - Address in hexadecimal    HexV - Value in hexadecimal",
+    "U16 - Unsigned 16 bit integer     I16 - Signed 16 bit integer",
+    "HexV - Value in hexadecimal       U16 - Unsigned 16 bit integer",
+    "I16 - Signe 16 bit integer        U32 - Unsigned 32 bit integer",
+    "I32 - Signed 32 bit integer       F32 - 32 bit floating point",
+    "St - string representation        Bits - the register bits"
     # "i - Sweep IP addresses with register reads",
 ]
 
@@ -73,6 +84,7 @@ def app(screen):
     normal_text = curses.A_NORMAL
     curses.curs_set(0)
     screen.refresh()
+    screen_size = screen.getmaxyx()
     menu = HeaderMenu(screen, normal_text, highlighted_text)
     data_window = ScrollableList(screen.getmaxyx()[0] - 5,
                                  screen.getmaxyx()[1],
@@ -85,13 +97,36 @@ def app(screen):
     x = screen.getch()
     modbus_handler = None
     logger.info("ModTerm started up")
+    history: dict[str, HistoryItem] = {}
     while x != curses.KEY_F10:
+        if (x == curses.KEY_RESIZE and curses.is_term_resized(screen_size[0], screen_size[1])) or \
+                curses.is_term_resized(screen_size[0], screen_size[1]):
+            curses.resizeterm(screen.getmaxyx()[0],
+                              screen.getmaxyx()[1])
+            screen_size = screen.getmaxyx()
+            new_header_menu = HeaderMenu(screen, normal_text, highlighted_text)
+            new_header_menu.configuration = menu.configuration
+            menu = new_header_menu
+            new_data_window = ScrollableList(screen.getmaxyx()[0] - 5,
+                                             screen.getmaxyx()[1],
+                                             5,
+                                             0,
+                                             normal_text,
+                                             highlighted_text)
+            new_data_window.data_rows = data_window.data_rows
+            new_data_window.title = data_window.title
+            new_data_window.added_border = data_window.added_border
+            new_data_window.header = data_window.header
+            new_data_window.empty_list_message = data_window.empty_list_message
+            data_window = new_data_window
+
         data_window.check_navigate(x)
         if menu.check_navigate(x):
-            if modbus_handler is not None and modbus_handler is not None:
+            if modbus_handler is not None:
 
                 table_data = modbus_handler.process_words(modbus_config=menu.configuration,
                                                           read_config=load_read_config())
+                table_data.title = data_window.title
                 data_window.draw(table_data)
 
         if x == curses.KEY_F1:
@@ -103,6 +138,9 @@ def app(screen):
                 if table_data is not None:
                     data_window.draw(table_data)
                     modbus_handler = read_registers_menu.modbus_handler
+                    history = {**{table_data.title: HistoryItem(table_content=table_data,
+                                                                modbus_handler=modbus_handler)},
+                               **history}
                 save_modbus_config(menu.configuration)
         if x == ord("w"):
             write_registers_menu = WriteRegistersMenu(screen, normal_text, highlighted_text, menu.configuration)
@@ -115,7 +153,15 @@ def app(screen):
                 table_data = unit_sweep_menu.get_result()
                 if table_data is not None:
                     data_window.draw(table_data)
-                    modbus_handler = unit_sweep_menu.modbus_handler
+                    modbus_handler = None
+                save_modbus_config(menu.configuration)
+        if x == ord("i"):
+            ip_sweep_menu = IpSweepMenu(screen, normal_text, highlighted_text, menu.configuration)
+            if ip_sweep_menu.is_valid:
+                table_data = ip_sweep_menu.get_result()
+                if table_data is not None:
+                    data_window.draw(table_data)
+                    modbus_handler = None
                 save_modbus_config(menu.configuration)
         if x == ord("e"):
             if data_window.header is None or len(data_window.data_rows) == 0:
@@ -125,9 +171,25 @@ def app(screen):
                 export_menu = ExportMenu(screen, normal_text, highlighted_text, data_window.header, data_window.data_rows)
                 if export_menu.is_valid:
                     export_menu.get_result()
+        if x == ord("h"):
+            if len(history.keys()) != 0:
+                selection_window = SelectWindow(screen,
+                                                screen.getmaxyx()[0] - 20,
+                                                screen.getmaxyx()[1] - 30,
+                                                12,
+                                                10,
+                                                normal_text,
+                                                highlighted_text,
+                                                list(history.keys()),
+                                                title="Select previous result",
+                                                added_border=True)
+                selection = selection_window.get_selection()
+                if selection is not None:
+                    data_window.draw(history[selection].table_content)
+                    modbus_handler = history[selection].modbus_handler
         if x == ord('\n'):
             if len(data_window.data_rows) != 0:
-                if data_window.bar_position is not None:
+                if data_window.bar_position is not None and 2 < len(data_window.get_current_row_data()):
                     row_position = data_window.bar_position + 6
                     command_list = ["Close", "Write register", "Analyse"]
                     if row_position > screen.getmaxyx()[0] - len(command_list) - 3:
@@ -176,6 +238,8 @@ def main():
     except Exception as e:
         logger.critical("Critical error in main", exc_info=True)
         rc = 1
+    except KeyboardInterrupt:
+        pass
     finally:
         if 'stdscr' in locals():
             stdscr.keypad(False)

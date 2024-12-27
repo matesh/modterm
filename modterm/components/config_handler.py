@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from json import loads, dumps
 from modterm.components.definitions import CONFIG_DIR, ConfigType, ModbusConfig, ReadConfig, WriteConfig, \
-    UnitSweepConfig, ExportConfig
+    UnitSweepConfig, ExportConfig, IpSweepConfig
 
 
 class ConfigOperation(Enum):
@@ -61,16 +61,19 @@ def config_file_manager(action: ConfigOperation,
                                                      Type[ReadConfig],
                                                      Type[WriteConfig],
                                                      Type[UnitSweepConfig],
-                                                     Type[ExportConfig]]] = None,
+                                                     Type[ExportConfig],
+                                                     Type[IpSweepConfig]]] = None,
                         config_to_save: Optional[Union[ModbusConfig,
                                                        ReadConfig,
                                                        WriteConfig,
                                                        UnitSweepConfig,
-                                                       ExportConfig]] = None) -> Optional[Union[ModbusConfig,
+                                                       ExportConfig,
+                                                       IpSweepConfig]] = None) -> Optional[Union[ModbusConfig,
                                                                                                 ReadConfig,
                                                                                                 WriteConfig,
                                                                                                 UnitSweepConfig,
-                                                                                                ExportConfig]]:
+                                                                                                ExportConfig,
+                                                                                                IpSweepConfig]]:
 
     if (config_dir := get_project_dir()) is None:
         # TODO log error
@@ -143,6 +146,18 @@ def load_unit_sweep_config() -> UnitSweepConfig:
 def save_unit_sweep_config(config: UnitSweepConfig):
     return config_file_manager(action=ConfigOperation.SAVE,
                                config_type=ConfigType.UnitSweepConfig,
+                               config_to_save=config)
+
+
+def load_ip_sweep_config() -> IpSweepConfig:
+    return config_file_manager(action=ConfigOperation.LOAD,
+                               config_type=ConfigType.IpSweepConfig,
+                               config_class=IpSweepConfig)
+
+
+def save_ip_sweep_config(config: IpSweepConfig):
+    return config_file_manager(action=ConfigOperation.SAVE,
+                               config_type=ConfigType.IpSweepConfig,
                                config_to_save=config)
 
 

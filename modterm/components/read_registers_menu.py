@@ -125,7 +125,7 @@ class ReadRegistersMenu(MenuBase):
             if not 1 <= block_size <= 125:
                 block_size = None
         if block_size is None:
-            self.dialog.window.addstr(5, 23, "Block size must be between 1 and 125")
+            self.dialog.window.addstr(6, 23, "Block size must be between 1 and 125")
             self.dialog.window.refresh()
             curses.napms(1000)
         else:

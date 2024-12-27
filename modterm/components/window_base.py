@@ -21,11 +21,15 @@ import curses
 
 
 class WindowBase:
-    def __init__(self, screen, height, width, y=None, x=None, title="", footer="", min_height=None, min_width=None):
+    def __init__(self, screen, height, width, y=None, x=None, title="", footer="", min_height=None, min_width=None, added_border=False):
+        self.added_border = added_border
         max_height = screen.getmaxyx()[0]
         max_width = screen.getmaxyx()[1]
         width = width if width < max_width else max_width - 2
-        height = height if height < max_height else max_height - 2
+        if not added_border:
+            height = height if height < max_height else max_height - 2
+        else:
+            height = height + 2 if height + 2 < max_height else max_height - 4
         if (min_height is not None and width < min_width) or (min_height is not None and height < min_height):
             self.is_valid = False
             window = curses.newwin(max_height,
@@ -46,14 +50,25 @@ class WindowBase:
         self.width = width
         self.screen = screen
         self.height = height
+
+        if self.added_border:
+            self.underlay_window = curses.newwin(self.height + 2,
+                                                 self.width,
+                                                 (screen.getmaxyx()[0] - self.height - 2) // 2 if y is None else y - 2,
+                                                 (screen.getmaxyx()[1] - self.width) // 2 if x is None else x)
+
         self.window = curses.newwin(self.height,
                                     self.width, 
                                     (screen.getmaxyx()[0] - self.height) // 2 if y is None else y,
                                     (screen.getmaxyx()[1] - self.width) // 2 if x is None else x)
+
         self.title = title
         self.footer = footer
-        
+
     def draw_window(self):
+        if self.added_border:
+            self.underlay_window.erase()
+            self.underlay_window.refresh()
         self.window.erase()
         self.window.border(0)
         self.window.box()
