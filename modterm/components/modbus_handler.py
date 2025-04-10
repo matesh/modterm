@@ -247,7 +247,7 @@ class ModbusHandler:
         if modbus_config.mode == TCP:
             source = f"{modbus_config.ip}:{modbus_config.port} unit: {read_config.unit}"
         else:
-            source = f"{modbus_config.interface}:{modbus_config.baud_rate}/{modbus_config.bytesize}{modbus_config.parity}{modbus_config.stopbits} unit {read_config.unit}"
+            source = f"{modbus_config.interface}:{modbus_config.baud_rate}-{modbus_config.bytesize}{modbus_config.parity}{modbus_config.stopbits} unit {read_config.unit}"
         return TableContents(header=BITS_HEADER_ROW,
                              rows=return_rows,
                              title=f"{date} - {read_type} {read_config.start} -> {read_config.start + read_config.number} from {source}",)
@@ -347,6 +347,7 @@ class ModbusHandler:
                                                 values=encoder.to_registers(),
                                                 slave=unit_id)
         except Exception as e:
+            logger.critical("Failed to write registers", exc_info=True)
             self.status_text_callback(f"Failed to write register: {e}", failed=True)
             return
         if write_config.multicast:

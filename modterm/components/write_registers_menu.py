@@ -95,6 +95,7 @@ class WriteRegistersMenu(MenuBase):
             self.dialog.window.addstr(3, 24, "Invalid register number!")
             self.dialog.window.refresh()
             curses.napms(1000)
+            return
         self.configuration.address = start_register
 
     def get_unit_id(self, clear=False):
@@ -108,10 +109,11 @@ class WriteRegistersMenu(MenuBase):
             if not 0 < int(unit_id) < 256:
                 value = None
         if value is None:
-            self.dialog.window.addstr(5, 22, "Invalid unit ID")
+            self.dialog.window.addstr(4, 22, "Invalid unit ID")
             self.dialog.window.refresh()
             curses.napms(1000)
-        self.configuration.unit = unit_id
+            return
+        self.configuration.unit = value
 
     def get_format(self, clear=False):
         if self.format_lock:

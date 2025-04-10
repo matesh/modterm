@@ -20,7 +20,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import curses
 import time
 import os
-from modterm.components.hepers import get_text_input
+from modterm.components.hepers import get_text_input, CancelInput
 from modterm.components.scrollable_list import SelectWindow
 from modterm.components.config_handler import load_export_config, save_export_config, get_project_dir
 from modterm.components.menu_base import MenuBase
@@ -74,7 +74,7 @@ class ExportMenu(MenuBase):
                 self.dialog.window.addstr(position, 2 + len(label), value, self.normal_text)
         self.dialog.window.refresh()
 
-    def file_type(self):
+    def file_type(self, clear=False):
         type_list = ["CSV", "TXT"]
         width = len(max(type_list, key=len)) + 4
         selector = SelectWindow(self.screen, len(type_list) + 2, width, self.dialog.window.getbegyx()[0] + 3,
@@ -83,9 +83,12 @@ class ExportMenu(MenuBase):
         if (selection := selector.get_selection()) is not None:
             self.configuration.last_file_type = selection
 
-    def directory(self):
-        directory = get_text_input(self.dialog.window, self.dialog.width - 26, 3, 25,
-                                   str(self.configuration.last_dir))
+    def directory(self, clear=False):
+        try:
+            directory = get_text_input(self.dialog.window, self.dialog.width - 26, 3, 25,
+                                       str(self.configuration.last_dir) if not clear else "")
+        except CancelInput:
+            return
         if not os.path.isdir(directory):
             self.dialog.window.addstr(3, 25, "  Directory doesn't exist  ")
             self.dialog.window.refresh()
@@ -93,10 +96,14 @@ class ExportMenu(MenuBase):
         else:
             self.configuration.last_dir = directory
 
-    def file_name(self):
-        file_name = get_text_input(self.dialog.window, self.dialog.width - 20, 4, 18,
-                                   str(self.configuration.last_file_name))
+    def file_name(self, clear=False):
+        try:
+            file_name = get_text_input(self.dialog.window, self.dialog.width - 20, 4, 18,
+                                       str(self.configuration.last_file_name) if not clear else "")
+        except CancelInput:
+            return
         self.configuration.last_file_name = file_name
+
 
     def action(self):
         save_export_config(self.configuration)
