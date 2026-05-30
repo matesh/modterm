@@ -121,6 +121,7 @@ class ModbusHandler:
         else:
             self.last_data = self.get_register_blocks(screen, client.read_coils, read_config, bits=True)
         self.last_command = read_config.command
+        client.close()
         return self.process_result(modbus_config, read_config)
 
     def process_words(self, modbus_config: ModbusConfig, read_config: ReadConfig) -> TableContents:
@@ -331,6 +332,7 @@ class ModbusHandler:
                 encode_call(write_config.value)
             except Exception as e:
                 self.status_text_callback(f"Failed to encode value! {repr(e)}", failed=True)
+                client.close()
                 return
         try:
             if write_config.command == COIL_WRITE:
@@ -338,6 +340,7 @@ class ModbusHandler:
                     value = bool(int(write_config.value))
                 except Exception as e:
                     self.status_text_callback(f"Failed to convert coil value: {e}", failed=True)
+                    client.close()
                     return
                 result = (client.write_coil(address=int(write_config.address),
                                             value=value,
@@ -349,14 +352,17 @@ class ModbusHandler:
         except Exception as e:
             logger.critical("Failed to write registers", exc_info=True)
             self.status_text_callback(f"Failed to write register: {e}", failed=True)
+            client.close()
             return
         if write_config.multicast:
             self.status_text_callback("Multicast message sent with unit ID 0, no response expected")
+            client.close()
             return
         if hasattr(result, "isError") and result.isError():
             self.status_text_callback(f"Failed to write register: {result}", failed=True)
         else:
             self.status_text_callback(f"Register(s) successfully written")
+        client.close()
 
     def unit_sweep(self, screen, modbus_config: ModbusConfig, sweep_config: UnitSweepConfig) -> Optional[TableContents]:
         to_return = TableContents(header=[
@@ -406,6 +412,7 @@ class ModbusHandler:
                     to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
                                            f" Valid modbus register response received!"])
             unit += 1
+        client.close()
         return to_return
 
     def ip_sweep(self, screen, modbus_config, confiuration: IpSweepConfig) -> Optional[TableContents]:
@@ -451,6 +458,7 @@ class ModbusHandler:
                                            f" Valid modbus register response received!"])
 
             address += 1
+            client.close()
         return to_return
 
 
