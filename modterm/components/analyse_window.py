@@ -18,7 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
 from modterm.components.window_base import WindowBase
-from pymodbus.payload import BinaryPayloadDecoder as Decoder
+from modterm.components.modbus_handler import Decoder
 
 
 class AnalyseWindow:
