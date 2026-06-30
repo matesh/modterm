@@ -28,6 +28,7 @@ from modterm.components.definitions import HOLDING, INPUT, LittleEndian, ModbusC
     TableContents, TCP, UnitSweepConfig, COIL, DISCRETE, COIL_WRITE, IpSweepConfig
 import logging
 from pymodbus import pymodbus_apply_logging_config
+from pymodbus.constants import ExcCodes
 from modterm.components.payload_builders import BinaryPayloadDecoder as Decoder
 from modterm.components.payload_builders import BinaryPayloadBuilder as Builder
 from modterm.components.payload_builders import Endian
@@ -280,10 +281,14 @@ class ModbusHandler:
             self.status_text_callback(f"Failed to connect: {repr(e)}", failed=True)
             return [None] * count
         except Exception as e:
-            self.status_text_callback(f"Failed to read: {repr(e)}", failed=True)
+            self.status_text_callback(f"Failed to read: {repr(e)} {type(e)}", failed=True)
             return [None] * count
         if result.isError():
-            self.status_text_callback(f"Failed to read {slave}, {address}, {count}, {result}", failed=True)
+            try:
+                exc_code = ExcCodes(result.exception_code).name.lower()
+            except Exception:
+                exc_code = result.exception_code
+            self.status_text_callback(f"Failed to read {slave}, {address}, {count} function_code={result.function_code}, exception code = {hex(result.exception_code)} ({exc_code})", failed=True)
             return [None] * count
         self.status_text_callback(f"Successfully read {slave}, {address}, {count}")
         if not bits:
@@ -385,7 +390,11 @@ class ModbusHandler:
                 pass
             return
         if hasattr(result, "isError") and result.isError():
-            self.status_text_callback(f"Failed to write register: {result}", failed=True)
+            try:
+                exc_code = ExcCodes(result.exception_code).name.lower()
+            except Exception:
+                exc_code = result.exception_code
+            self.status_text_callback(f"Failed to write register: exception code: {hex(result.exception_code)} ({exc_code})", failed=True)
         else:
             self.status_text_callback(f"Register(s) successfully written")
         try:
@@ -424,18 +433,22 @@ class ModbusHandler:
                                        f" No response: {repr(e).strip()}"])
             else:
                 if result.isError():
+                    try:
+                        exc_code = ExcCodes(result.exception_code).name.lower()
+                    except Exception:
+                        exc_code = result.exception_code
                     if type(result) == ModbusIOException:
-                        self.status_text_callback(f"Unit {unit}: No response: ModbusIOException", failed=True)
+                        self.status_text_callback(f"Unit {unit}: No response: ModbusIOException fc: {result.function_code} exception code: {result.exception_code} ({exc_code})", failed=True)
                         to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
                                                f" No response: ModbusIOException"])
                     elif type(result) == ExceptionResponse:
-                        self.status_text_callback(f"Unit {unit}: Received exception: {result.exception_code}", failed=True)
+                        self.status_text_callback(f"Unit {unit}: Received exception: {hex(result.exception_code)} ({exc_code})", failed=True)
                         to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
-                                               f" Received exception: {result}"])
+                                               f" Received exception: {hex(result.exception_code)} ({exc_code})"])
                     else:
                         self.status_text_callback(f"Unit {unit}: Received no known response", failed=True)
                         to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
-                                               f" No know response received: {result}"])
+                                               f" No know response received: {hex(result.exception_code)} ({exc_code})"])
                 else:
                     self.status_text_callback(f"Unit {unit}: Valid register response received!")
                     to_return.rows.append([" {num: >{width}}".format(num=unit, width=3),
@@ -481,11 +494,28 @@ class ModbusHandler:
                                        f" No response: {repr(e).strip()}"])
             else:
                 if result.isError():
-                    self.status_text_callback(f"{ip}: No response: {repr(result)}", failed=True)
-                    to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
-                                           f" No response: {repr(result).strip()}"])
+                    if type(result) == ModbusIOException:
+                        try:
+                            exc_code = ExcCodes(result.exception_code).name.lower()
+                        except Exception:
+                            exc_code = result.exception_code
+                        self.status_text_callback(f" {ip}: No response: fc: {result.function_code} exc: {hex(result.exception_code)} ({exc_code})", failed=True)
+                        to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
+                                               "f No response: ModbusIOException"])
+                    elif type(result) == ExceptionResponse:
+                        self.status_text_callback(f" {ip}: Received exception: {result.exception_code}", failed=True)
+                        try:
+                            exc_code = ExcCodes(result.exception_code).name
+                        except Exception:
+                            exc_code = result.exception_code
+                        to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
+                                               f" Received exception: {hex(result.exception_code)} ({exc_code})"])
+                    else:
+                        self.status_text_callback(f"{ip}: Received no known response", failed=True)
+                        to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
+                                               f" No know response received: {result}"])
                 else:
-                    self.status_text_callback(f"{ip}: Valid register response received!")
+                    self.status_text_callback(f" {ip}: Valid register response received!")
                     to_return.rows.append(["{num: <{width}}".format(num=ip, width=15),
                                            f" Valid modbus register response received!"])
 
